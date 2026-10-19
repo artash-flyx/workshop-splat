@@ -1,6 +1,16 @@
 {
- "updated": "2026-10-19T07:58:12+00:00",
+ "updated": "2026-10-19T07:59:23+00:00",
  "issues": [
+  {
+   "number": 8,
+   "html_url": "https://github.com/artash-flyx/workshop-splat/issues/8",
+   "user": {
+    "login": "Artash-N"
+   },
+   "created_at": "2026-10-19T07:58:56Z",
+   "updated_at": "2026-10-19T07:58:56Z",
+   "body": "**Team:** Skyrunners\n**Status:** Long-term storage\n**What:** 3D Printed Fixed-Wing Drone\n\n<sub>Placed from the Robotics Room Move-Out map. The map reads the block below \u2014 edit the JSON to change this tag, or close the issue to remove it.</sub>\n\n```room-tag\n{\"v\":2,\"frame\":\"v3\",\"pos\":[-0.9816,-0.7828,-2.0968],\"vol\":{\"c\":[-0.9816,-0.7828,-2.0968],\"h\":[0.6067,0.1253,0.2258],\"yaw\":0.0717},\"eye\":[-1.1131,-0.231,-1.3085],\"team\":\"Skyrunners\",\"status\":\"long_storage\",\"what\":\"3D Printed Fixed-Wing Drone\"}\n```"
+  },
   {
    "number": 7,
    "html_url": "https://github.com/artash-flyx/workshop-splat/issues/7",
@@ -8,7 +18,7 @@
     "login": "Artash-N"
    },
    "created_at": "2026-10-19T07:57:53Z",
-   "updated_at": "2026-10-19T07:57:53Z",
+   "updated_at": "2026-10-19T07:58:12Z",
    "body": "**Team:** Skyrunners\n**Status:** Moving out by Oct 30, 2026\n**What:** flight controller stick\n\n<sub>Placed from the Robotics Room Move-Out map. The map reads the block below \u2014 edit the JSON to change this tag, or close the issue to remove it.</sub>\n\n```room-tag\n{\"v\":2,\"frame\":\"v3\",\"pos\":[-2.0601,0.4855,-1.7025],\"vol\":{\"c\":[-2.0601,0.4855,-1.7025],\"h\":[0.142,0.1269,0.0915],\"yaw\":1.0419},\"eye\":[-1.2397,0.5375,-1.6006],\"team\":\"Skyrunners\",\"status\":\"moving_out\",\"date\":\"2026-10-30\",\"what\":\"flight controller stick\"}\n```"
   },
   {
