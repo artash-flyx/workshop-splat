@@ -429,7 +429,8 @@ try {
     if (t.frame && t.frame !== FRAME) return null;
     const s = (x, n) => typeof x === "string" ? x.slice(0, n) : "";
     const area = Array.isArray(t.area) && t.area.length === 4 && t.area.every(q => Array.isArray(q) && q.length === 3 && q.every(Number.isFinite)) ? t.area.map(q => q.map(Number)) : null;
-    return { pos: t.pos.map(Number), area, status: t.status, team: s(t.team, 60) || "Unknown team", what: s(t.what, 80), note: s(t.note, 400), by: s(t.by, 60),
+    const eye = Array.isArray(t.eye) && t.eye.length === 3 && t.eye.every(Number.isFinite) ? t.eye.map(Number) : null;
+    return { pos: t.pos.map(Number), area, eye, status: t.status, team: s(t.team, 60) || "Unknown team", what: s(t.what, 80), note: s(t.note, 400), by: s(t.by, 60),
              date: /^\d{4}-\d{2}-\d{2}$/.test(t.date || "") ? t.date : "" };
   }
   const TAG_RE = /```room-tag\s*\n([\s\S]*?)\n```/;
@@ -554,9 +555,10 @@ try {
 
   function focusTag(x) {
     selected = x.key; renderTags();
-    const pos = new THREE.Vector3(...x.t.pos);
+    const pos = new THREE.Vector3(...x.t.pos), eye = x.t.eye ? new THREE.Vector3(...x.t.eye) : null;
+    // back to where it was tagged from; older tags: the spot about 1 unit away (close enough to read, not inside it)
     let best = hops[0], bd = Infinity;
-    for (const h of hops) { const d = h.v.distanceTo(pos); if (d < bd && d > 0.25) { bd = d; best = h; } }
+    for (const h of hops) { const d = eye ? h.v.distanceTo(eye) : Math.abs(h.v.distanceTo(pos) - 1.0); if (d < bd) { bd = d; best = h; } }
     hopTo(best, pos);
     setTimeout(() => openPop(x.key), 700);
     if (matchMedia("(max-width: 820px)").matches) $("list").classList.add("collapsed");
@@ -617,7 +619,7 @@ try {
     if (!d.length) return null;
     d.sort((a, b) => a - b); const dist = d[Math.floor(d.length / 2)];
     const at = (x, y) => { ray(x, y); return raycaster.ray.at(dist, new THREE.Vector3()); };
-    return { corners: [at(r.x, r.y), at(r.x + r.w, r.y), at(r.x + r.w, r.y + r.h), at(r.x, r.y + r.h)], center: at(r.x + r.w / 2, r.y + r.h / 2) };
+    return { corners: [at(r.x, r.y), at(r.x + r.w, r.y), at(r.x + r.w, r.y + r.h), at(r.x, r.y + r.h)], center: at(r.x + r.w / 2, r.y + r.h / 2), eye: camera.position.clone() };
   }
 
   function openQuick(area, r) {
@@ -651,7 +653,7 @@ try {
     if (!qStatus) return void ($("qErr").textContent = "Pick a status.");
     if (qStatus === "moving_out" && !$("qDate").value) return void ($("qErr").textContent = "Pick the date it's moving out.");
     const r4 = (v) => v.toArray().map(n => +n.toFixed(4));
-    const t = { v: 1, frame: FRAME, pos: r4(draft.center), area: draft.corners.map(r4), team: qTeam, status: qStatus };
+    const t = { v: 1, frame: FRAME, pos: r4(draft.center), area: draft.corners.map(r4), eye: r4(draft.eye), team: qTeam, status: qStatus };
     if (qStatus === "moving_out") t.date = $("qDate").value;
     if ($("qWhat").value.trim()) t.what = $("qWhat").value.trim();
     store.set("lastTeam", qTeam);
