@@ -1,1 +1,15 @@
-{"updated": null, "issues": []}
+{
+ "updated": "2026-10-19T06:57:06+00:00",
+ "issues": [
+  {
+   "number": 1,
+   "html_url": "https://github.com/artash-flyx/workshop-splat/issues/1",
+   "user": {
+    "login": "Artash-N"
+   },
+   "created_at": "2026-10-19T06:56:54Z",
+   "updated_at": "2026-10-19T06:56:54Z",
+   "body": "**Team:** Skyrunners\n**Status:** Moving out by Oct 30, 2026\n**What:** Solder Iron\n\n<sub>Placed from the Robotics Room Move-Out map. The map reads the block below \u2014 edit the JSON to change this tag, or close the issue to remove it.</sub>\n\n```room-tag\n{\"v\":1,\"frame\":\"v3\",\"pos\":[-3.1318,-0.489,-0.2594],\"area\":[[-3.1266,-0.3453,-0.0274],[-3.1601,-0.3585,-0.5149],[-3.1029,-0.6332,-0.5062],[-3.0706,-0.6086,-0.0142]],\"team\":\"Skyrunners\",\"status\":\"moving_out\",\"date\":\"2026-10-30\",\"what\":\"Solder Iron\"}\n```"
+  }
+ ]
+}
