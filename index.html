@@ -115,6 +115,9 @@
   #qErr:empty { display: none; }
   #quick .acts { display: flex; gap: 8px; justify-content: space-between; align-items: center; }
   #quick .gh { font-size: 11px; color: var(--muted); }
+  #tools { display: inline-flex; }
+  #areas polyline.shape { fill: rgba(255, 138, 61, .12); stroke: #ff8a3d; stroke-width: 2; stroke-dasharray: 6 4; }
+  #areas circle.start { fill: #ff8a3d; stroke: #0d0f12; stroke-width: 2; }
   #sel { position: fixed; border: 1.5px dashed var(--accent); background: rgba(255, 138, 61, .12); pointer-events: none; z-index: 3; }
   #areas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   #areas polygon { fill-opacity: .13; stroke-width: 1.5; stroke-linejoin: round; }
@@ -194,6 +197,7 @@
 
 <div id="bar" class="panel">
   <button class="btn primary" id="tagBtn">Tag an area</button>
+  <div id="tools" class="seg" role="group" aria-label="Selection tool" hidden><button type="button" data-v="box" title="Drag a box around the thing (B)">Box</button><button type="button" data-v="shape" title="Click points around the thing, or drag to draw freehand (S)">Shape</button></div>
   <span id="hint">Click the orange arrows to hop · drag to look around</span>
   <button class="btn" id="listToggle">Tags</button>
   <button class="btn ghost" id="helpBtn" title="How this works (?)">Help</button>
@@ -218,14 +222,14 @@
   <p class="muted" style="margin:0">A 3D scan of the robotics room. Walk around, find your team's things, and tag what happens to them before the move.</p>
   <ol>
     <li><b>Move:</b> click the orange arrows on the floor (or press the arrow keys) to hop between 9 spots. Click a dot on the map to jump. Drag to look around.</li>
-    <li><b>Tag:</b> press <b>Tag an area</b> and drag a box around the thing. Pick your team (Skyrunners, RoboSub, Escape Room, General, Previous teams) and a status: <i>moving out by a date</i>, <i>no longer needed</i>, or <i>long-term storage</i>.</li>
+    <li><b>Tag:</b> press <b>Tag an area</b>, then either drag a <b>Box</b>, or pick <b>Shape</b> and click points around the thing (click the first point or press Enter to finish; drag to draw freehand). The map works out the 3D object inside and highlights it. Pick your team (Skyrunners, RoboSub, Escape Room, General, Previous teams) and a status: <i>moving out by a date</i>, <i>no longer needed</i>, or <i>long-term storage</i>.</li>
     <li><b>Save:</b> you're sent to GitHub with everything filled in. Press <b>Submit new issue</b>. Your pin shows as dashed until it's saved, then everyone sees it.</li>
     <li><b>Change or remove a tag:</b> click its pin → <b>Edit on GitHub</b>. Tagged areas stay outlined in the room as you move around.</li>
   </ol>
   <table class="muted">
     <tr><td><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></td><td>hop between spots</td></tr>
     <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> <kbd>Q</kbd><kbd>E</kbd></td><td>walk freely, down / up (hold <kbd>Shift</kbd> to go faster)</td></tr>
-    <tr><td><kbd>T</kbd></td><td>tag an area · <kbd>Esc</kbd> cancel</td></tr>
+    <tr><td><kbd>T</kbd></td><td>tag an area · <kbd>B</kbd> box / <kbd>S</kbd> shape tool · <kbd>Enter</kbd> finish shape · <kbd>Backspace</kbd> undo point · <kbd>Esc</kbd> cancel</td></tr>
   </table>
   <div style="display:flex;justify-content:flex-end"><button class="btn primary" id="helpClose">Got it</button></div>
 </div>
@@ -239,7 +243,7 @@
 
 <script type="module">
 import * as THREE from "three";
-import { SparkRenderer, SplatMesh, SparkControls } from "@sparkjsdev/spark";
+import { SparkRenderer, SplatMesh, SparkControls, SplatEdit, SplatEditSdf } from "@sparkjsdev/spark";
 
 // ---------------------------------------------------------------------------------------------
 // Configuration
@@ -419,6 +423,131 @@ try {
     if (best) hopTo(best); else toast("No spot that way — try another arrow.", 1800);
   }
 
+  // ---- keep people inside the room ----------------------------------------------------------
+  const camXs = poses.cameras.map(c => c.p[0]), camZs = poses.cameras.map(c => c.p[2]);
+  const ROOM = {
+    x: [Math.max(poses.bounds_lo[0] + 0.15, Math.min(...camXs) - 1.0), Math.min(poses.bounds_hi[0] - 0.15, Math.max(...camXs) + 1.0)],
+    z: [Math.max(poses.bounds_lo[2] + 0.15, Math.min(...camZs) - 1.0), Math.min(poses.bounds_hi[2] - 0.15, Math.max(...camZs) + 1.0)],
+    y: [hopsCfg.floor_y + 0.3, hopsCfg.eye_y + 0.7],
+  };
+  let edgeToastAt = 0;
+  function keepInRoom() {
+    const p = camera.position, x = p.x, y = p.y, z = p.z;
+    p.x = Math.min(ROOM.x[1], Math.max(ROOM.x[0], x)); p.y = Math.min(ROOM.y[1], Math.max(ROOM.y[0], y)); p.z = Math.min(ROOM.z[1], Math.max(ROOM.z[0], z));
+    if ((p.x !== x || p.y !== y || p.z !== z) && performance.now() - edgeToastAt > 4000) { edgeToastAt = performance.now(); toast("That's the edge of the room.", 1500); }
+  }
+
+  // ---- point cloud of the scan (turns a drawn shape into a 3D volume) -------------------------
+  let cloud = null, cloudPromise = null;
+  function loadCloud() {
+    return cloudPromise ??= Promise.all([fetch("points.json").then(r => r.json()), fetch("points.bin").then(r => r.arrayBuffer())]).then(([m, buf]) => {
+      const q = new Uint16Array(buf), n = m.count, P = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) for (let k = 0; k < 3; k++) P[i * 3 + k] = m.lo[k] + (q[i * 3 + k] / 65535) * (m.hi[k] - m.lo[k]);
+      cloud = P; renderTags(); return P;
+    });
+  }
+  const median = (a) => { const b = [...a].sort((x, y) => x - y); return b[Math.floor(b.length / 2)]; };
+  const pct = (sorted, f) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.round(f * (sorted.length - 1))))];
+  const insidePoly = (poly, x, y) => { let c = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j];
+      if ((a.y > y) !== (b.y > y) && x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x) c = !c; }
+    return c; };
+  // Keep the contiguous run of depths around the object's surface: walk out from the anchor until 3 near-empty
+  // 2 cm bins. That gap is where the object ends and the wall/shelf behind it (or an occluder in front) begins.
+  function depthWindow(depths, anchor, allowance) {
+    const bin = 0.02, lo = anchor - 0.25, hi = anchor + allowance, n = Math.max(1, Math.ceil((hi - lo) / bin)), hist = new Uint32Array(n);
+    for (const d of depths) if (d >= lo && d < hi) hist[Math.floor((d - lo) / bin)]++;
+    let peak = 0; for (const h of hist) if (h > peak) peak = h;
+    const thr = Math.max(2, peak * 0.04), ai = Math.min(n - 1, Math.max(0, Math.floor((anchor - lo) / bin)));
+    let a = ai, b = ai, gap = 0;
+    for (let i = ai; i < n; i++) { if (hist[i] < thr) { if (++gap >= 3) break; } else { gap = 0; b = i; } }
+    gap = 0;
+    for (let i = ai; i >= 0; i--) { if (hist[i] < thr) { if (++gap >= 3) break; } else { gap = 0; a = i; } }
+    return [lo + a * bin, lo + (b + 1) * bin];
+  }
+  // Upright box around the points, turned to their main horizontal axis; trims 3% outliers per side.
+  function boxFromPoints(P) {
+    let mx = 0, mz = 0; for (const p of P) { mx += p.x; mz += p.z; } mx /= P.length; mz /= P.length;
+    let xx = 0, xz = 0, zz = 0; for (const p of P) { const dx = p.x - mx, dz = p.z - mz; xx += dx * dx; xz += dx * dz; zz += dz * dz; }
+    const a = 0.5 * Math.atan2(2 * xz, xx - zz), ux = Math.cos(a), uz = Math.sin(a);
+    const S = P.map(p => (p.x - mx) * ux + (p.z - mz) * uz).sort((p, q) => p - q);
+    const T = P.map(p => -(p.x - mx) * uz + (p.z - mz) * ux).sort((p, q) => p - q);
+    const Y = P.map(p => p.y).sort((p, q) => p - q);
+    const r = (A) => [pct(A, 0.03), pct(A, 0.97)];
+    const [s0, s1] = r(S), [t0, t1] = r(T), [y0, y1] = r(Y), pad = 0.02;
+    const sc = (s0 + s1) / 2, tc = (t0 + t1) / 2;
+    return { c: [mx + sc * ux - tc * uz, (y0 + y1) / 2, mz + sc * uz + tc * ux], h: [(s1 - s0) / 2 + pad, (y1 - y0) / 2 + pad, (t1 - t0) / 2 + pad], yaw: -a, n: P.length };
+  }
+  function fallbackBox(center, size) { return { c: center.toArray(), h: [size, size, Math.min(size, 0.1)], yaw: 0, n: 0 }; }
+  // Screen shape -> 3D volume of the object under it.
+  function volumeFromScreen(poly) {
+    const cr = canvas.getBoundingClientRect();
+    const xs = poly.map(p => p.x), ys = poly.map(p => p.y);
+    const bx0 = Math.min(...xs), bx1 = Math.max(...xs), by0 = Math.min(...ys), by1 = Math.max(...ys);
+    const toNdc = (x, y) => new THREE.Vector2(((x - cr.left) / cr.width) * 2 - 1, -((y - cr.top) / cr.height) * 2 + 1);
+    camera.updateMatrixWorld(); const view = camera.matrixWorldInverse;
+    // 1) anchor depth: raycast up to 16 samples inside the shape against the splat
+    const samples = [];
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { const x = bx0 + (bx1 - bx0) * (i + .5) / 4, y = by0 + (by1 - by0) * (j + .5) / 4; if (insidePoly(poly, x, y)) samples.push([x, y]); }
+    if (!samples.length) samples.push([xs.reduce((a, b) => a + b) / xs.length, ys.reduce((a, b) => a + b) / ys.length]);
+    raycaster.near = 0.05; raycaster.far = 50;
+    const hitDepths = [];
+    for (const [x, y] of samples) { raycaster.setFromCamera(toNdc(x, y), camera);
+      const hit = raycaster.intersectObject(activeMesh, false).sort((a, b) => a.distance - b.distance)[0];
+      if (hit) hitDepths.push(-hit.point.clone().applyMatrix4(view).z); }
+    if (!hitDepths.length) return null;
+    const anchor = median(hitDepths);
+    const fpx = cr.height / 2 / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const worldSize = Math.max(bx1 - bx0, by1 - by0) * anchor / fpx;
+    // 2) every cloud point that projects inside the shape, with its depth
+    const e = view.elements, pm = camera.projectionMatrix.elements, P = cloud, cand = [], depths = [];
+    for (let i = 0; i < P.length; i += 3) {
+      const x = P[i], y = P[i + 1], z = P[i + 2];
+      const vx = e[0] * x + e[4] * y + e[8] * z + e[12], vy = e[1] * x + e[5] * y + e[9] * z + e[13], vz = e[2] * x + e[6] * y + e[10] * z + e[14];
+      if (vz > -0.05) continue;
+      const w = -vz, sx = cr.left + ((pm[0] * vx + pm[8] * vz) / w + 1) / 2 * cr.width, sy = cr.top + (1 - (pm[5] * vy + pm[9] * vz) / w) / 2 * cr.height;
+      if (sx < bx0 || sx > bx1 || sy < by0 || sy > by1 || !insidePoly(poly, sx, sy)) continue;
+      cand.push(i); depths.push(w);
+    }
+    // 3) cut the object out of that column by depth
+    const [d0, d1] = depthWindow(depths, anchor, Math.min(1.5, Math.max(0.15, 1.2 * worldSize)));
+    const sel = []; for (let k = 0; k < cand.length; k++) if (depths[k] >= d0 && depths[k] <= d1) { const i = cand[k]; sel.push(new THREE.Vector3(P[i], P[i + 1], P[i + 2])); }
+    if (sel.length < 25) { raycaster.setFromCamera(toNdc((bx0 + bx1) / 2, (by0 + by1) / 2), camera); return fallbackBox(raycaster.ray.at(anchor, new THREE.Vector3()), Math.max(0.05, worldSize / 2)); }
+    return boxFromPoints(sel);
+  }
+  // Older rectangle tags: same idea, through a prism behind the rectangle (seen from the side facing the nearest spot).
+  function volumeFromQuad(area) {
+    const C = area.map(a => new THREE.Vector3(...a)), q = C.reduce((s, c) => s.add(c), new THREE.Vector3()).multiplyScalar(0.25);
+    const n = new THREE.Vector3().crossVectors(C[2].clone().sub(C[0]), C[3].clone().sub(C[1])).normalize();
+    const hop = hops.reduce((a, h) => h.v.distanceTo(q) < a.v.distanceTo(q) ? h : a, hops[0]);
+    if (hop.v.clone().sub(q).dot(n) < 0) n.negate();
+    const u = C[1].clone().sub(C[0]).normalize(), w = new THREE.Vector3().crossVectors(n, u);
+    const poly = C.map(c => ({ x: c.clone().sub(q).dot(u), y: c.clone().sub(q).dot(w) }));
+    const size = Math.max(C[0].distanceTo(C[1]), C[1].distanceTo(C[2]));
+    const P = cloud, cand = [], depths = [], d = new THREE.Vector3();
+    for (let i = 0; i < P.length; i += 3) {
+      d.set(P[i] - q.x, P[i + 1] - q.y, P[i + 2] - q.z);
+      const s = -d.dot(n); if (s < -0.3 || s > 1.6) continue;
+      if (!insidePoly(poly, d.dot(u), d.dot(w))) continue;
+      cand.push(i); depths.push(s);
+    }
+    const [d0, d1] = depthWindow(depths, 0, Math.min(1.5, Math.max(0.15, 1.2 * size)));
+    const sel = []; for (let k = 0; k < cand.length; k++) if (depths[k] >= d0 && depths[k] <= d1) { const i = cand[k]; sel.push(new THREE.Vector3(P[i], P[i + 1], P[i + 2])); }
+    return sel.length < 25 ? fallbackBox(q, Math.max(0.05, size / 2)) : boxFromPoints(sel);
+  }
+  // A volume on screen: the Gaussians inside it get tinted, plus a wireframe box.
+  const boxEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(2, 2, 2));
+  function volumeVisual(vol, hex, strength, lineOpacity = 0.9) {
+    const edit = new SplatEdit({ rgbaBlendMode: "add_rgba", softEdge: 0.015 });
+    const sdf = new SplatEditSdf({ type: "box", color: new THREE.Color(hex).multiplyScalar(strength), opacity: 0 });
+    sdf.position.set(...vol.c); sdf.rotation.y = vol.yaw; sdf.scale.set(...vol.h);
+    edit.add(sdf); scene.add(edit);
+    const lines = new THREE.LineSegments(boxEdges, new THREE.LineBasicMaterial({ color: hex, transparent: true, opacity: lineOpacity, depthTest: false }));
+    lines.position.set(...vol.c); lines.rotation.y = vol.yaw; lines.scale.set(...vol.h); lines.renderOrder = 998; scene.add(lines);
+    return { edit, lines, dispose() { scene.remove(edit); scene.remove(lines); lines.material.dispose(); } };
+  }
+  const volVisuals = new Map(), legacyVol = new Map();
+
   // ---- tags ----------------------------------------------------------------------------------
   let tags = [];                       // [{key, number?, url?, user?, created, pending?, t:{...}}]
   let pending = store.get("pendingTags", []).filter(p => Date.now() - p.created < 3 * 864e5);
@@ -430,7 +559,9 @@ try {
     const s = (x, n) => typeof x === "string" ? x.slice(0, n) : "";
     const area = Array.isArray(t.area) && t.area.length === 4 && t.area.every(q => Array.isArray(q) && q.length === 3 && q.every(Number.isFinite)) ? t.area.map(q => q.map(Number)) : null;
     const eye = Array.isArray(t.eye) && t.eye.length === 3 && t.eye.every(Number.isFinite) ? t.eye.map(Number) : null;
-    return { pos: t.pos.map(Number), area, eye, status: t.status, team: s(t.team, 60) || "Unknown team", what: s(t.what, 80), note: s(t.note, 400), by: s(t.by, 60),
+    const v3 = (a) => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
+    const vol = t.vol && v3(t.vol.c) && v3(t.vol.h) && t.vol.h.every(x => x > 0 && x < 5) && Number.isFinite(t.vol.yaw) ? { c: t.vol.c.map(Number), h: t.vol.h.map(Number), yaw: +t.vol.yaw } : null;
+    return { pos: t.pos.map(Number), area, eye, vol, status: t.status, team: s(t.team, 60) || "Unknown team", what: s(t.what, 80), note: s(t.note, 400), by: s(t.by, 60),
              date: /^\d{4}-\d{2}-\d{2}$/.test(t.date || "") ? t.date : "" };
   }
   const TAG_RE = /```room-tag\s*\n([\s\S]*?)\n```/;
@@ -512,9 +643,22 @@ try {
       p._pos = new THREE.Vector3(...x.t.pos);
     }
     for (const [k, p] of pinEls) if (!keep.has(k)) { p.remove(); pinEls.delete(k); }
-    // outlined areas
+    // 3D volumes (tinted Gaussians + wireframe box)
+    const hasVol = new Set();
     for (const x of vis) {
-      if (!x.t.area) continue;
+      let vol = x.t.vol;
+      if (!vol && x.t.area && cloud) { if (!legacyVol.has(x.key)) legacyVol.set(x.key, volumeFromQuad(x.t.area)); vol = legacyVol.get(x.key); }
+      if (!vol) continue;
+      hasVol.add(x.key);
+      const hex = cssColor(STATUSES[x.t.status].color), strength = selected === x.key ? 0.6 : 0.4, lo = x.pending ? 0.5 : selected === x.key ? 1 : 0.9;
+      const sig = JSON.stringify(vol) + hex + strength + lo;
+      let vv = volVisuals.get(x.key);
+      if (!vv || vv.sig !== sig) { vv?.dispose(); vv = volumeVisual(vol, hex, strength, lo); vv.sig = sig; volVisuals.set(x.key, vv); }
+    }
+    for (const [k, vv] of volVisuals) if (!hasVol.has(k)) { vv.dispose(); volVisuals.delete(k); }
+    // flat outlines: only for older rectangle tags until the point cloud has loaded
+    for (const x of vis) {
+      if (!x.t.area || hasVol.has(x.key)) continue;
       let g = areaEls.get(x.key);
       if (!g) { g = mk("polygon", {}); $("areas").append(g); areaEls.set(x.key, g); }
       const col = cssColor(STATUSES[x.t.status].color);
@@ -522,14 +666,14 @@ try {
       g.setAttribute("class", (x.pending ? "pending " : "") + (selected === x.key ? "sel" : ""));
       g._pts = x.t.area.map(q => new THREE.Vector3(...q));
     }
-    for (const [k, g] of areaEls) if (!keep.has(k) || !allTags().find(y => y.key === k)?.t.area) { g.remove(); areaEls.delete(k); }
+    for (const [k, g] of areaEls) if (!keep.has(k) || hasVol.has(k) || !allTags().find(y => y.key === k)?.t.area) { g.remove(); areaEls.delete(k); }
     // minimap tag dots
     tagLayer.replaceChildren(...vis.map(x => { const [mx, my] = toMap(x.t.pos[0], x.t.pos[2]);
       return mk("circle", { cx: Math.max(3, Math.min(117, mx)).toFixed(1), cy: Math.max(3, Math.min(77, my)).toFixed(1), r: 1.7, fill: cssColor(STATUSES[x.t.status].color) }); }));
   }
 
   const proj = new THREE.Vector3();
-  let draftArea = null;
+
   function updatePins() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
     const place = (p, pos) => {
@@ -550,7 +694,7 @@ try {
       g.style.display = ""; g.setAttribute("points", xy.join(" "));
     };
     for (const g of areaEls.values()) outline(g, g._pts);
-    if (draftArea) outline(draftArea, draftArea._pts);
+
   }
 
   function focusTag(x) {
@@ -585,16 +729,49 @@ try {
     pop.style.top = Math.max(16, Math.min(innerHeight - ph - 16, r.top - ph / 2)) + "px";
   }
 
-  // ---- adding a tag: drag a box, then a small team/status popover ------------------------------
-  let tagging = false, sel = null, qTeam = null, qStatus = null;
+  // ---- adding a tag: draw a box or a shape, the map finds the 3D object, then a small popup ----------
+  let tagging = false, sel = null, qTeam = null, qStatus = null, tool = store.get("tagTool", "box");
+  let shape = null;                       // { pts: [{x,y}], free, cursor, downAt, dragging }
+  const hintFor = () => tool === "box" ? "Drag a box around the thing you want to tag" : "Click points around the thing — click the first point or press Enter to finish · or drag to draw freehand";
+  function setTool(tl) { tool = tl; store.set("tagTool", tl); for (const b of $("tools").children) b.setAttribute("aria-pressed", String(b.dataset.v === tl)); clearShape(); if (tagging) $("hint").textContent = hintFor(); }
+  for (const b of $("tools").children) b.onclick = () => setTool(b.dataset.v);
   function setTagging(v) {
     tagging = v; document.body.classList.toggle("tagging", v);
     $("tagBtn").textContent = v ? "Cancel" : "Tag an area";
     $("tagBtn").classList.toggle("primary", !v);
-    $("hint").textContent = v ? "Drag a box around the thing you want to tag" : "Click the orange arrows to hop · drag to look around";
-    ptr.enable = !v;                     // dragging draws a box instead of turning the view
+    $("tools").hidden = !v; setTool(tool);
+    $("hint").textContent = v ? hintFor() : "Click the orange arrows to hop · drag to look around";
+    ptr.enable = !v;                     // drawing replaces turning the view while tagging
+    if (v) loadCloud().catch(() => toast("Couldn't load the 3D points — try again in a moment.", 3000));
+    else clearShape();
   }
   $("tagBtn").onclick = () => { if (!$("quick").hidden) return closeQuick(); setTagging(!tagging); };
+
+  // the shape being drawn, in the overlay
+  let shapeEl = null, startEl = null;
+  function drawShape() {
+    if (!shape) return;
+    if (!shapeEl) { shapeEl = mk("polyline", { class: "shape" }); startEl = mk("circle", { class: "start", r: 6 }); $("areas").append(shapeEl, startEl); }
+    const pts = shape.pts.concat(shape.cursor && !shape.dragging ? [shape.cursor] : []);
+    shapeEl.setAttribute("points", pts.map(p => `${p.x},${p.y}`).join(" "));
+    if (shape.pts.length) { startEl.setAttribute("cx", shape.pts[0].x); startEl.setAttribute("cy", shape.pts[0].y); startEl.style.display = shape.pts.length >= 3 && !shape.dragging ? "" : "none"; }
+  }
+  function clearShape() { shape = null; shapeEl?.remove(); startEl?.remove(); shapeEl = startEl = null; }
+  let finishing = false;
+  async function finishSelection(poly) {
+    if (finishing) return; finishing = true;
+    try {
+      const xs = poly.map(p => p.x), ys = poly.map(p => p.y);
+      const r = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+      $("hint").textContent = cloud ? "Finding the object…" : "Loading the 3D points…";
+      try { await loadCloud(); } catch {}
+      await new Promise(res => requestAnimationFrame(() => setTimeout(res, 0)));
+      const vol = activeMesh && cloud ? volumeFromScreen(poly) : null;
+      clearShape();
+      if (!vol) { $("hint").textContent = hintFor(); return toast("Nothing there — draw around an object.", 2200); }
+      vol.eye = camera.position.toArray(); setTagging(false); openQuick(vol, r);
+    } finally { finishing = false; }
+  }
 
   const segButton = (label, color, onPick) => { const b = el("button"); b.type = "button"; b.setAttribute("aria-pressed", "false");
     if (color) { b.style.setProperty("--c", color); b.append(el("span", "dot")); } b.append(document.createTextNode(label)); b.onclick = onPick; return b; };
@@ -604,27 +781,10 @@ try {
   for (const tm of TEAMS) { const b = segButton(tm, null, () => pickTeam(tm)); b.dataset.v = tm; $("qTeam").append(b); }
   for (const [k, st] of Object.entries(STATUSES)) { const b = segButton(st.label, st.color, () => pickStatus(k)); b.dataset.v = k; $("qStatus").append(b); }
 
-  // the box's 3D area: sample 3x3 rays inside it, take the median hit distance, place the corners there
-  function measureArea(r) {
-    if (!activeMesh) return null;
-    const cr = canvas.getBoundingClientRect();
-    const ray = (x, y) => { raycaster.setFromCamera(new THREE.Vector2(((x - cr.left) / cr.width) * 2 - 1, -((y - cr.top) / cr.height) * 2 + 1), camera); };
-    raycaster.near = 0.05; raycaster.far = 50;
-    const d = [];
-    for (const fx of [0.2, 0.5, 0.8]) for (const fy of [0.2, 0.5, 0.8]) {
-      ray(r.x + r.w * fx, r.y + r.h * fy);
-      const hit = raycaster.intersectObject(activeMesh, false).sort((a, b) => a.distance - b.distance)[0];
-      if (hit) d.push(hit.distance);
-    }
-    if (!d.length) return null;
-    d.sort((a, b) => a - b); const dist = d[Math.floor(d.length / 2)];
-    const at = (x, y) => { ray(x, y); return raycaster.ray.at(dist, new THREE.Vector3()); };
-    return { corners: [at(r.x, r.y), at(r.x + r.w, r.y), at(r.x + r.w, r.y + r.h), at(r.x, r.y + r.h)], center: at(r.x + r.w / 2, r.y + r.h / 2), eye: camera.position.clone() };
-  }
-
-  function openQuick(area, r) {
-    draft = area;
-    draftArea = mk("polygon", { class: "draft" }); draftArea._pts = area.corners; $("areas").append(draftArea);
+  let draftVis = null;
+  function openQuick(vol, r) {
+    draft = vol;
+    draftVis = volumeVisual(vol, "#ff8a3d", 0.45);
     const q = $("quick"); qTeam = null; qStatus = null; press("qTeam", ""); press("qStatus", "");
     $("qDateRow").hidden = true; $("qDate").value = ""; $("qWhat").value = ""; $("qErr").textContent = "";
     const last = store.get("lastTeam", ""); if (TEAMS.includes(last)) pickTeam(last);
@@ -635,7 +795,7 @@ try {
     q.style.left = left + "px"; q.style.top = Math.max(16, Math.min(innerHeight - qh - 16, r.y)) + "px";
     (q.querySelector('#qTeam button[aria-pressed="true"]') || q.querySelector("#qTeam button")).focus();
   }
-  function closeQuick() { $("quick").hidden = true; draft = null; if (draftArea) { draftArea.remove(); draftArea = null; } }
+  function closeQuick() { $("quick").hidden = true; draft = null; draftVis?.dispose(); draftVis = null; }
   $("qClose").onclick = closeQuick;
 
   function issueUrl(t) {
@@ -652,8 +812,8 @@ try {
     if (!qTeam) return void ($("qErr").textContent = "Pick a team.");
     if (!qStatus) return void ($("qErr").textContent = "Pick a status.");
     if (qStatus === "moving_out" && !$("qDate").value) return void ($("qErr").textContent = "Pick the date it's moving out.");
-    const r4 = (v) => v.toArray().map(n => +n.toFixed(4));
-    const t = { v: 1, frame: FRAME, pos: r4(draft.center), area: draft.corners.map(r4), eye: r4(draft.eye), team: qTeam, status: qStatus };
+    const r4 = (a) => a.map(n => +n.toFixed(4));
+    const t = { v: 2, frame: FRAME, pos: r4(draft.c), vol: { c: r4(draft.c), h: r4(draft.h), yaw: +draft.yaw.toFixed(4) }, eye: r4(draft.eye), team: qTeam, status: qStatus };
     if (qStatus === "moving_out") t.date = $("qDate").value;
     if ($("qWhat").value.trim()) t.what = $("qWhat").value.trim();
     store.set("lastTeam", qTeam);
@@ -671,20 +831,25 @@ try {
   let down = null;
   canvas.addEventListener("pointerdown", (e) => {
     down = { x: e.clientX, y: e.clientY, t: performance.now() }; canvas.focus();
-    if (tagging && e.isPrimary) { sel = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId);
-      Object.assign($("sel").style, { left: e.clientX + "px", top: e.clientY + "px", width: "0px", height: "0px" }); $("sel").hidden = false; }
+    if (!tagging || !e.isPrimary || finishing) return;
+    canvas.setPointerCapture(e.pointerId);
+    if (tool === "box") { sel = { x: e.clientX, y: e.clientY }; Object.assign($("sel").style, { left: e.clientX + "px", top: e.clientY + "px", width: "0px", height: "0px" }); $("sel").hidden = false; }
+    else { shape ??= { pts: [] }; shape.downAt = { x: e.clientX, y: e.clientY }; shape.dragging = false; }
   });
   canvas.addEventListener("pointerup", (e) => {
-    if (sel) {   // finish a box (a plain click makes a small box around the point)
+    if (sel) {   // box: a plain click makes a small box around the point
       let r = boxOf(sel, { x: e.clientX, y: e.clientY }); sel = null; $("sel").hidden = true; down = null;
       if (r.w < 12 || r.h < 12) r = { x: e.clientX - 40, y: e.clientY - 40, w: 80, h: 80 };
-      $("hint").textContent = "Measuring…";
-      requestAnimationFrame(() => setTimeout(() => {
-        const area = measureArea(r);
-        if (!area) { $("hint").textContent = "Drag a box around the thing you want to tag"; return toast("Nothing there — drag the box over an object.", 2200); }
-        setTagging(false); openQuick(area, r);
-      }, 0));
-      return;
+      return void finishSelection([{ x: r.x, y: r.y }, { x: r.x + r.w, y: r.y }, { x: r.x + r.w, y: r.y + r.h }, { x: r.x, y: r.y + r.h }]);
+    }
+    if (tagging && shape && shape.downAt) {
+      const p = { x: e.clientX, y: e.clientY }; shape.downAt = null; down = null;
+      if (shape.dragging) { shape.dragging = false; if (shape.pts.length >= 3) return void finishSelection(shape.pts); clearShape(); return; }
+      const first = shape.pts[0];
+      if (shape.pts.length >= 3 && Math.hypot(p.x - first.x, p.y - first.y) < 14) return void finishSelection(shape.pts);
+      const last = shape.pts[shape.pts.length - 1];
+      if (!last || Math.hypot(p.x - last.x, p.y - last.y) > 3) shape.pts.push(p);
+      drawShape(); return;
     }
     if (!down) return; const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t; down = null;
     if (moved > 6 || dt > 600 || glide) return;
@@ -692,9 +857,18 @@ try {
     const a = arrowHit(); if (a && !tagging) return hopTo(a.userData.target);
     if (!$("pop").hidden) { $("pop").hidden = true; selected = null; renderTags(); }
   });
+  canvas.addEventListener("dblclick", () => { if (tagging && shape && shape.pts.length >= 3) finishSelection(shape.pts); });
   let moveQueued = false;
   canvas.addEventListener("pointermove", (e) => {
     if (sel) { const r = boxOf(sel, { x: e.clientX, y: e.clientY }); Object.assign($("sel").style, { left: r.x + "px", top: r.y + "px", width: r.w + "px", height: r.h + "px" }); return; }
+    if (tagging && tool === "shape" && shape) {
+      const p = { x: e.clientX, y: e.clientY };
+      if (shape.downAt && e.buttons && (shape.dragging || Math.hypot(p.x - shape.downAt.x, p.y - shape.downAt.y) > 8)) {   // freehand
+        if (!shape.dragging) { shape.dragging = true; if (!shape.pts.length) shape.pts.push(shape.downAt); }
+        const last = shape.pts[shape.pts.length - 1]; if (Math.hypot(p.x - last.x, p.y - last.y) > 5) shape.pts.push(p);
+      }
+      shape.cursor = p; drawShape(); return;
+    }
     if (moveQueued || e.buttons) return; moveQueued = true;
     requestAnimationFrame(() => { moveQueued = false; setNdc(e); const a = tagging ? null : arrowHit();
       hoverArrow = a; document.body.classList.toggle("over-arrow", !!a); canvas.title = a ? `Hop to spot ${a.userData.target.id}` : ""; });
@@ -705,7 +879,11 @@ try {
     if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) { if (e.key === "Escape") closeQuick(); return; }
     const k = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" }[e.key];
     if (k) { e.preventDefault(); if (!glide) hopDir(k); return; }
-    if (e.key === "Escape") { if (!$("quick").hidden) closeQuick(); else if (tagging) setTagging(false); $("pop").hidden = true; $("help").hidden = true; }
+    if (tagging && shape && e.key === "Enter" && shape.pts.length >= 3) { e.preventDefault(); return void finishSelection(shape.pts); }
+    if (tagging && shape && e.key === "Backspace") { e.preventDefault(); shape.pts.pop(); if (!shape.pts.length) clearShape(); else drawShape(); return; }
+    if (tagging && (e.key === "b" || e.key === "B")) return setTool("box");
+    if (tagging && (e.key === "s" || e.key === "S")) return setTool("shape");
+    if (e.key === "Escape") { if (!$("quick").hidden) closeQuick(); else if (tagging && shape) clearShape(); else if (tagging) setTagging(false); $("pop").hidden = true; $("help").hidden = true; }
     else if (e.key === "t" || e.key === "T") { if ($("quick").hidden) setTagging(!tagging); }
     else if (e.key === "?") $("help").hidden = !$("help").hidden;
   });
@@ -723,7 +901,7 @@ try {
     const blob = new Blob([rows.map(r => r.map(q).join(",")).join("\n")], { type: "text/csv" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "robotics-room-tags.csv"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   };
-  window.app = { camera, hops, hopTo, tags: () => allTags(), meshes, loadTags };   // console access for debugging
+  window.app = { camera, hops, hopTo, tags: () => allTags(), meshes, loadTags, volumes: () => [...volVisuals.keys()], legacyVol, ROOM };   // console access for debugging
 
   // ---- start ---------------------------------------------------------------------------------
   const start = hopAt(1, 1) || hops[0];
@@ -743,11 +921,12 @@ try {
       camera.position.lerpVectors(glide.from, glide.to, s);
       camera.quaternion.slerpQuaternions(glide.q0, glide.q1, s);
       if (k >= 1) { glide = null; fps.enable = ptr.enable = true; }
-    } else controls.update(camera, camera);
+    } else { controls.update(camera, camera); keepInRoom(); }
     placeArrows(); updateMap(); updatePins();
     renderer.render(scene, camera);
   });
   await setQuality(store.get("quality", phone ? "lite" : "full"));
+  loadCloud().catch(() => {});      // older rectangle tags need it to become volumes
 } catch (e) {
   console.error(e);
   fail(String(e && e.message || e));
