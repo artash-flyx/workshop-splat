@@ -1,6 +1,16 @@
 {
- "updated": "2026-10-19T06:57:06+00:00",
+ "updated": "2026-10-19T06:58:07+00:00",
  "issues": [
+  {
+   "number": 2,
+   "html_url": "https://github.com/artash-flyx/workshop-splat/issues/2",
+   "user": {
+    "login": "Artash-N"
+   },
+   "created_at": "2026-10-19T06:57:55Z",
+   "updated_at": "2026-10-19T06:57:55Z",
+   "body": "**Team:** Skyrunners\n**Status:** Moving out by Oct 30, 2026\n**What:** DroneHacks Box\n\n<sub>Placed from the Robotics Room Move-Out map. The map reads the block below \u2014 edit the JSON to change this tag, or close the issue to remove it.</sub>\n\n```room-tag\n{\"v\":1,\"frame\":\"v3\",\"pos\":[-1.4476,-0.7214,-1.6187],\"area\":[[-1.7392,-0.6476,-1.5368],[-1.1596,-0.6388,-1.682],[-1.1504,-0.6836,-1.6235],[-1.7183,-0.6928,-1.48]],\"team\":\"Skyrunners\",\"status\":\"moving_out\",\"date\":\"2026-10-30\",\"what\":\"DroneHacks Box\"}\n```"
+  },
   {
    "number": 1,
    "html_url": "https://github.com/artash-flyx/workshop-splat/issues/1",
@@ -8,7 +18,7 @@
     "login": "Artash-N"
    },
    "created_at": "2026-10-19T06:56:54Z",
-   "updated_at": "2026-10-19T06:56:54Z",
+   "updated_at": "2026-10-19T06:57:05Z",
    "body": "**Team:** Skyrunners\n**Status:** Moving out by Oct 30, 2026\n**What:** Solder Iron\n\n<sub>Placed from the Robotics Room Move-Out map. The map reads the block below \u2014 edit the JSON to change this tag, or close the issue to remove it.</sub>\n\n```room-tag\n{\"v\":1,\"frame\":\"v3\",\"pos\":[-3.1318,-0.489,-0.2594],\"area\":[[-3.1266,-0.3453,-0.0274],[-3.1601,-0.3585,-0.5149],[-3.1029,-0.6332,-0.5062],[-3.0706,-0.6086,-0.0142]],\"team\":\"Skyrunners\",\"status\":\"moving_out\",\"date\":\"2026-10-30\",\"what\":\"Solder Iron\"}\n```"
   }
  ]
