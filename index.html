@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:,">
 <title>Robotics Room Move-Out</title>
 <meta name="description" content="Walk the robotics room in 3D and tag what each team is moving out, retiring, or storing.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -61,9 +62,9 @@
   #list header { padding: 10px 12px 8px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
   #list header .top { display: flex; justify-content: space-between; align-items: baseline; }
   #list h2 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 600; }
-  #filters { display: flex; gap: 4px; flex-wrap: wrap; }
-  #filters button { font: 11px var(--mono); padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); background: transparent; cursor: pointer; color: var(--muted); display: inline-flex; gap: 5px; align-items: center; }
-  #filters button[aria-pressed="true"] { color: var(--ink); border-color: var(--line-2); background: #1c222a; }
+  #filters, #teamFilters { display: flex; gap: 4px; flex-wrap: wrap; }
+  #filters button, #teamFilters button { font: 11px var(--mono); padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); background: transparent; cursor: pointer; color: var(--muted); display: inline-flex; gap: 5px; align-items: center; }
+  #filters button[aria-pressed="true"], #teamFilters button[aria-pressed="true"] { color: var(--ink); border-color: var(--line-2); background: #1c222a; }
   #teamFilter { width: 100%; background: #0f1317; border: 1px solid var(--line); border-radius: 3px; padding: 5px 8px; }
   #items { flex: 1; overflow-y: auto; padding: 4px 0; }
   .item { display: grid; grid-template-columns: 10px 1fr; gap: 4px 9px; padding: 8px 12px; cursor: pointer; border-left: 2px solid transparent; }
@@ -99,23 +100,27 @@
   #pop .meta { font: 11px var(--mono); color: var(--muted); }
   #pop .acts { display: flex; gap: 8px; flex-wrap: wrap; }
   #pop a.btn { text-decoration: none; }
-  #form { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(440px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
-  #form h3 { margin: 0; font-size: 18px; }
-  .field { display: flex; flex-direction: column; gap: 4px; }
-  .field label, .field legend { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; padding: 0; }
-  .field input, .field textarea { background: #0b0e11; border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; }
-  .field textarea { resize: vertical; min-height: 54px; }
-  fieldset.field { border: 0; margin: 0; padding: 0; }
-  .opts { display: grid; gap: 6px; }
-  .opt { display: grid; grid-template-columns: 18px 1fr; gap: 2px 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
-  .opt:has(input:checked) { border-color: var(--c); background: #151a20; }
-  .opt input { margin: 3px 0 0; accent-color: var(--c); }
-  .opt b { font-weight: 600; }
-  .opt span { grid-column: 2; font-size: 12px; color: var(--muted); }
-  .field .opt { text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 14px; color: var(--ink); }
-  #formErr { color: #ffb38a; min-height: 1em; font-size: 13px; }
-  #form .acts { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
-  #ghNote { font-size: 12px; color: var(--muted); }
+  #quick { width: 344px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  #quick .qh { display: flex; justify-content: space-between; align-items: center; }
+  #quick .qh b { font-size: 15px; }
+  #quick .qh .btn { padding: 2px 8px; }
+  #quick .lab { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 5px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 5px; }
+  .seg button { font: 500 13px var(--ui); padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); background: #171c22; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+  .seg button:hover { border-color: var(--line-2); }
+  .seg button[aria-pressed="true"] { background: var(--c, var(--accent)); border-color: var(--c, var(--accent)); color: #0d0f12; font-weight: 600; }
+  .seg button[aria-pressed="true"] .dot { background: #0d0f12; }
+  #quick input { background: #0b0e11; border: 1px solid var(--line); border-radius: 3px; padding: 6px 9px; width: 100%; }
+  #qErr { color: #ffb38a; font-size: 12px; }
+  #qErr:empty { display: none; }
+  #quick .acts { display: flex; gap: 8px; justify-content: space-between; align-items: center; }
+  #quick .gh { font-size: 11px; color: var(--muted); }
+  #sel { position: fixed; border: 1.5px dashed var(--accent); background: rgba(255, 138, 61, .12); pointer-events: none; z-index: 3; }
+  #areas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #areas polygon { fill-opacity: .13; stroke-width: 1.5; stroke-linejoin: round; }
+  #areas polygon.pending { stroke-dasharray: 6 4; }
+  #areas polygon.sel { fill-opacity: .26; stroke-width: 2.5; }
+  #areas polygon.draft { fill: #ff8a3d; stroke: #ff8a3d; fill-opacity: .2; stroke-dasharray: 6 4; }
 
   #toast { left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); padding: 9px 14px; max-width: calc(100% - 32px); font-size: 13px; }
   #help { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
@@ -155,7 +160,9 @@
 </head>
 <body>
 <canvas id="c" tabindex="0" aria-label="3D view of the robotics room"></canvas>
+<svg id="areas" aria-hidden="true"></svg>
 <div id="pins" aria-hidden="true"></div>
+<div id="sel" hidden></div>
 
 <div id="head" class="panel">
   <h1>Robotics Room Move-Out</h1>
@@ -176,16 +183,17 @@
 <aside id="list" class="panel collapsed" aria-label="Tags">
   <header>
     <div class="top"><h2>Tags</h2><span class="muted mono" id="listCount"></span></div>
+    <div id="teamFilters" role="group" aria-label="Filter by team"></div>
     <div id="filters" role="group" aria-label="Filter by status"></div>
-    <input id="teamFilter" type="search" placeholder="Filter by team or item…" aria-label="Filter by team or item">
+    <input id="teamFilter" type="search" placeholder="Search items…" aria-label="Search items">
   </header>
   <div id="items"></div>
-  <div id="empty" hidden>No tags yet. Use <b>Tag an object</b> to add the first one.</div>
+  <div id="empty" hidden>No tags yet. Use <b>Tag an area</b> to add the first one.</div>
   <footer><span id="source">—</span><span><a id="ghIssues" target="_blank" rel="noopener">GitHub</a> · <a href="#" id="csv">CSV</a></span></footer>
 </aside>
 
 <div id="bar" class="panel">
-  <button class="btn primary" id="tagBtn">Tag an object</button>
+  <button class="btn primary" id="tagBtn">Tag an area</button>
   <span id="hint">Click the orange arrows to hop · drag to look around</span>
   <button class="btn" id="listToggle">Tags</button>
   <button class="btn ghost" id="helpBtn" title="How this works (?)">Help</button>
@@ -195,20 +203,14 @@
 
 <div id="pop" class="sheet" hidden role="dialog" aria-label="Tag details"></div>
 
-<form id="form" class="sheet" hidden aria-label="New tag">
-  <h3>Tag this object</h3>
-  <div class="field"><label for="fTeam">Team or project</label>
-    <input id="fTeam" list="teamList" required maxlength="60" placeholder="e.g. RoboSub" autocomplete="off">
-    <datalist id="teamList"></datalist></div>
-  <div class="field"><label for="fWhat">What is it?</label>
-    <input id="fWhat" maxlength="80" placeholder="e.g. blue shelving unit, AUV frame, battery bins"></div>
-  <fieldset class="field"><legend>Status</legend><div class="opts" id="fStatus"></div></fieldset>
-  <div class="field" id="dateField"><label for="fDate">Moving out by</label><input id="fDate" type="date"></div>
-  <div class="field"><label for="fNote">Note (optional)</label><textarea id="fNote" maxlength="400" placeholder="Anything the move-out crew should know"></textarea></div>
-  <div class="field"><label for="fBy">Your name (optional)</label><input id="fBy" maxlength="60" autocomplete="name"></div>
-  <div id="formErr" role="alert"></div>
-  <p id="ghNote">Tags are saved as issues in a public GitHub repo, so you need a free GitHub account. The next page is pre-filled — just press <b>Submit new issue</b>.</p>
-  <div class="acts"><button type="button" class="btn ghost" id="fCancel">Cancel</button><button type="submit" class="btn primary">Continue on GitHub</button></div>
+<form id="quick" class="sheet" hidden aria-label="New tag">
+  <div class="qh"><b>Tag this area</b><button type="button" class="btn ghost" id="qClose" aria-label="Cancel" title="Cancel (Esc)">✕</button></div>
+  <div><div class="lab">Team</div><div class="seg" id="qTeam" role="group" aria-label="Team"></div></div>
+  <div><div class="lab">Status</div><div class="seg" id="qStatus" role="group" aria-label="Status"></div></div>
+  <div id="qDateRow" hidden><div class="lab"><label for="qDate">Moving out by</label></div><input id="qDate" type="date"></div>
+  <input id="qWhat" maxlength="80" placeholder="What is it? (optional)" aria-label="What is it? (optional)">
+  <div id="qErr" role="alert"></div>
+  <div class="acts"><span class="gh">Saves as a GitHub issue</span><button type="submit" class="btn primary">Save tag</button></div>
 </form>
 
 <div id="help" class="sheet" hidden role="dialog" aria-label="How this works">
@@ -216,14 +218,14 @@
   <p class="muted" style="margin:0">A 3D scan of the robotics room. Walk around, find your team's things, and tag what happens to them before the move.</p>
   <ol>
     <li><b>Move:</b> click the orange arrows on the floor (or press the arrow keys) to hop between 9 spots. Click a dot on the map to jump. Drag to look around.</li>
-    <li><b>Tag:</b> press <b>Tag an object</b>, click the thing, then pick your team and a status: <i>moving out by a date</i>, <i>no longer needed</i>, or <i>long-term storage</i>.</li>
+    <li><b>Tag:</b> press <b>Tag an area</b> and drag a box around the thing. Pick your team (Skyrunners, RoboSub, Escape Room, General, Previous teams) and a status: <i>moving out by a date</i>, <i>no longer needed</i>, or <i>long-term storage</i>.</li>
     <li><b>Save:</b> you're sent to GitHub with everything filled in. Press <b>Submit new issue</b>. Your pin shows as dashed until it's saved, then everyone sees it.</li>
-    <li><b>Change or remove a tag:</b> click its pin → <b>Edit on GitHub</b>.</li>
+    <li><b>Change or remove a tag:</b> click its pin → <b>Edit on GitHub</b>. Tagged areas stay outlined in the room as you move around.</li>
   </ol>
   <table class="muted">
     <tr><td><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></td><td>hop between spots</td></tr>
     <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> <kbd>Q</kbd><kbd>E</kbd></td><td>walk freely, down / up (hold <kbd>Shift</kbd> to go faster)</td></tr>
-    <tr><td><kbd>T</kbd></td><td>tag an object · <kbd>Esc</kbd> cancel</td></tr>
+    <tr><td><kbd>T</kbd></td><td>tag an area · <kbd>Esc</kbd> cancel</td></tr>
   </table>
   <div style="display:flex;justify-content:flex-end"><button class="btn primary" id="helpClose">Got it</button></div>
 </div>
@@ -248,6 +250,7 @@ const STATUSES = {
   not_needed:   { label: "No longer needed",  long: "No longer needed",       desc: "Unused, or a previous team's — OK to clear out.",  color: "var(--st-unneeded)" },
   long_storage: { label: "Long-term storage", long: "Long-term storage",      desc: "Keep it, but it goes to storage.",                 color: "var(--st-storage)" },
 };
+const TEAMS = ["Skyrunners", "RoboSub", "Escape Room", "General", "Previous teams"];
 const $ = (id) => document.getElementById(id);
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
                 set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
@@ -372,10 +375,10 @@ try {
   // Minimap: the 3x3 spots, your heading, and every tag as a coloured dot.
   const svgNS = "http://www.w3.org/2000/svg";
   const mapSvg = $("mapSvg");
-  // map covers the whole room (2-98% of the scan's points) plus every spot
-  const xs = [...hops.map(h => h.v.x), poses.bounds_lo[0], poses.bounds_hi[0]], zs = [...hops.map(h => h.v.z), poses.bounds_lo[2], poses.bounds_hi[2]];
+  // map frames the 9 spots with generous margins (tags beyond it sit on the edge)
+  const xs = hops.map(h => h.v.x), zs = hops.map(h => h.v.z);
   const bx = [Math.min(...xs), Math.max(...xs)], bz = [Math.min(...zs), Math.max(...zs)];
-  const padX = (bx[1] - bx[0]) * 0.04, padZ = (bz[1] - bz[0]) * 0.04;
+  const padX = (bx[1] - bx[0]) * 0.3 + 0.1, padZ = (bz[1] - bz[0]) * 0.3 + 0.1;
   const toMap = (x, z) => [10 + 100 * (x - bx[0] + padX) / (bx[1] - bx[0] + 2 * padX), 8 + 64 * (z - bz[0] + padZ) / (bz[1] - bz[0] + 2 * padZ)];
   const mk = (n, a) => { const e = document.createElementNS(svgNS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
   mapSvg.append(mk("rect", { x: 1, y: 1, width: 118, height: 78, rx: 3, fill: "none", stroke: "#2a3038" }));
@@ -385,7 +388,7 @@ try {
   for (const h of hops) {
     const [x, y] = toMap(h.v.x, h.v.z);
     const g = mk("g", { class: "hop", tabindex: 0, role: "button", "aria-label": `Jump to spot ${h.id}` });
-    g.append(mk("circle", { cx: x, cy: y, r: 9, fill: "transparent" }), mk("circle", { cx: x, cy: y, r: 3.6, fill: "#3a434e", stroke: "#8b94a1", "stroke-width": .8 }));
+    g.append(mk("circle", { cx: x, cy: y, r: 7, fill: "transparent" }), mk("circle", { cx: x, cy: y, r: 3.8, fill: "#3a434e", stroke: "#8b94a1", "stroke-width": .8 }));
     g.onclick = () => hopTo(h); g.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); hopTo(h); } };
     hopLayer.append(g); hopDots[h.id] = g.lastChild;
   }
@@ -419,13 +422,14 @@ try {
   // ---- tags ----------------------------------------------------------------------------------
   let tags = [];                       // [{key, number?, url?, user?, created, pending?, t:{...}}]
   let pending = store.get("pendingTags", []).filter(p => Date.now() - p.created < 3 * 864e5);
-  let filterStatus = new Set(Object.keys(STATUSES)), filterText = "", selected = null, draft = null;
+  let filterStatus = new Set(Object.keys(STATUSES)), filterTeams = new Set(TEAMS), filterText = "", selected = null, draft = null;
   function validTag(t) {
     if (!t || typeof t !== "object" || !STATUSES[t.status]) return null;
     if (!Array.isArray(t.pos) || t.pos.length !== 3 || !t.pos.every(Number.isFinite)) return null;
     if (t.frame && t.frame !== FRAME) return null;
     const s = (x, n) => typeof x === "string" ? x.slice(0, n) : "";
-    return { pos: t.pos.map(Number), status: t.status, team: s(t.team, 60) || "Unknown team", what: s(t.what, 80), note: s(t.note, 400), by: s(t.by, 60),
+    const area = Array.isArray(t.area) && t.area.length === 4 && t.area.every(q => Array.isArray(q) && q.length === 3 && q.every(Number.isFinite)) ? t.area.map(q => q.map(Number)) : null;
+    return { pos: t.pos.map(Number), area, status: t.status, team: s(t.team, 60) || "Unknown team", what: s(t.what, 80), note: s(t.note, 400), by: s(t.by, 60),
              date: /^\d{4}-\d{2}-\d{2}$/.test(t.date || "") ? t.date : "" };
   }
   const TAG_RE = /```room-tag\s*\n([\s\S]*?)\n```/;
@@ -457,7 +461,7 @@ try {
     renderTags();
   }
   const allTags = () => [...tags, ...pending.map(p => ({ key: p.key, pending: true, created: new Date(p.created).toISOString(), t: p.t }))];
-  const visibleTags = () => allTags().filter(x => filterStatus.has(x.t.status) &&
+  const visibleTags = () => allTags().filter(x => filterStatus.has(x.t.status) && (!TEAMS.includes(x.t.team) || filterTeams.has(x.t.team)) &&
     (!filterText || (x.t.team + " " + x.t.what + " " + x.t.note).toLowerCase().includes(filterText)));
 
   // status filter chips + counts
@@ -467,9 +471,15 @@ try {
       filterStatus.has(k) ? filterStatus.delete(k) : filterStatus.add(k); b.setAttribute("aria-pressed", String(filterStatus.has(k))); renderTags(); };
     $("filters").append(b);
   }
+  for (const tm of TEAMS) {
+    const b = el("button", null, tm); b.setAttribute("aria-pressed", "true");
+    b.onclick = () => { filterTeams.has(tm) ? filterTeams.delete(tm) : filterTeams.add(tm); b.setAttribute("aria-pressed", String(filterTeams.has(tm))); renderTags(); };
+    $("teamFilters").append(b);
+  }
   $("teamFilter").addEventListener("input", (e) => { filterText = e.target.value.trim().toLowerCase(); renderTags(); });
 
-  const pinEls = new Map();      // key -> element
+  const pinEls = new Map(), areaEls = new Map();      // key -> pin element / area polygon
+  const cssColor = (v) => getComputedStyle(document.documentElement).getPropertyValue(v.slice(4, -1)).trim() || "#ccc";
   function renderTags() {
     const all = allTags(), vis = visibleTags();
     // counts
@@ -477,9 +487,6 @@ try {
       c.append(el("span", "dot"), el("span", null, `${all.filter(x => x.t.status === k).length} ${s.label.toLowerCase()}`)); return c; }));
     $("listCount").textContent = `${vis.length}/${all.length}`;
     $("listToggle").textContent = `Tags (${all.length})`;
-    // team suggestions
-    const teams = [...new Set(all.map(x => x.t.team))].sort();
-    $("teamList").replaceChildren(...teams.map(t => { const o = document.createElement("option"); o.value = t; return o; }));
     // list, grouped by team
     const items = $("items"); items.replaceChildren();
     const sorted = [...vis].sort((a, b) => a.t.team.localeCompare(b.t.team) || a.t.status.localeCompare(b.t.status));
@@ -504,13 +511,24 @@ try {
       p._pos = new THREE.Vector3(...x.t.pos);
     }
     for (const [k, p] of pinEls) if (!keep.has(k)) { p.remove(); pinEls.delete(k); }
+    // outlined areas
+    for (const x of vis) {
+      if (!x.t.area) continue;
+      let g = areaEls.get(x.key);
+      if (!g) { g = mk("polygon", {}); $("areas").append(g); areaEls.set(x.key, g); }
+      const col = cssColor(STATUSES[x.t.status].color);
+      g.setAttribute("fill", col); g.setAttribute("stroke", col);
+      g.setAttribute("class", (x.pending ? "pending " : "") + (selected === x.key ? "sel" : ""));
+      g._pts = x.t.area.map(q => new THREE.Vector3(...q));
+    }
+    for (const [k, g] of areaEls) if (!keep.has(k) || !allTags().find(y => y.key === k)?.t.area) { g.remove(); areaEls.delete(k); }
     // minimap tag dots
     tagLayer.replaceChildren(...vis.map(x => { const [mx, my] = toMap(x.t.pos[0], x.t.pos[2]);
-      return mk("circle", { cx: Math.max(3, Math.min(117, mx)).toFixed(1), cy: Math.max(3, Math.min(77, my)).toFixed(1), r: 1.7, fill: getComputedStyle(document.documentElement).getPropertyValue(STATUSES[x.t.status].color.slice(4, -1)).trim() || "#ccc" }); }));
+      return mk("circle", { cx: Math.max(3, Math.min(117, mx)).toFixed(1), cy: Math.max(3, Math.min(77, my)).toFixed(1), r: 1.7, fill: cssColor(STATUSES[x.t.status].color) }); }));
   }
 
   const proj = new THREE.Vector3();
-  let draftPin = null;
+  let draftArea = null;
   function updatePins() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
     const place = (p, pos) => {
@@ -524,7 +542,14 @@ try {
       p.style.zIndex = String(1000 - Math.round(dist * 100));
     };
     for (const p of pinEls.values()) place(p, p._pos);
-    if (draftPin) place(draftPin, draftPin._pos);
+    const outline = (g, pts) => {
+      const xy = [];
+      for (const v of pts) { proj.copy(v).project(camera); if (proj.z > 1 || proj.z < -1) { g.style.display = "none"; return; }
+        xy.push(`${((proj.x + 1) / 2 * w).toFixed(1)},${((1 - proj.y) / 2 * h).toFixed(1)}`); }
+      g.style.display = ""; g.setAttribute("points", xy.join(" "));
+    };
+    for (const g of areaEls.values()) outline(g, g._pts);
+    if (draftArea) outline(draftArea, draftArea._pts);
   }
 
   function focusTag(x) {
@@ -558,34 +583,58 @@ try {
     pop.style.top = Math.max(16, Math.min(innerHeight - ph - 16, r.top - ph / 2)) + "px";
   }
 
-  // ---- adding a tag --------------------------------------------------------------------------
-  let tagging = false;
+  // ---- adding a tag: drag a box, then a small team/status popover ------------------------------
+  let tagging = false, sel = null, qTeam = null, qStatus = null;
   function setTagging(v) {
     tagging = v; document.body.classList.toggle("tagging", v);
-    $("tagBtn").textContent = v ? "Cancel tagging" : "Tag an object";
+    $("tagBtn").textContent = v ? "Cancel" : "Tag an area";
     $("tagBtn").classList.toggle("primary", !v);
-    $("hint").textContent = v ? "Click directly on the object you want to tag" : "Click the orange arrows to hop · drag to look around";
+    $("hint").textContent = v ? "Drag a box around the thing you want to tag" : "Click the orange arrows to hop · drag to look around";
+    ptr.enable = !v;                     // dragging draws a box instead of turning the view
   }
-  $("tagBtn").onclick = () => { if (!$("form").hidden) return; setTagging(!tagging); };
-  for (const [k, s] of Object.entries(STATUSES)) {
-    const lab = el("label", "opt"); lab.style.setProperty("--c", s.color);
-    const inp = document.createElement("input"); inp.type = "radio"; inp.name = "status"; inp.value = k; inp.required = true;
-    const b = el("b"); b.append(el("span", "dot"), document.createTextNode(" " + s.long)); b.style.display = "inline-flex"; b.style.gap = "6px"; b.style.alignItems = "center"; b.style.setProperty("--c", s.color);
-    lab.append(inp, b, el("span", null, s.desc)); $("fStatus").append(lab);
-    inp.onchange = () => { $("dateField").hidden = k !== "moving_out"; };
-  }
-  $("dateField").hidden = true;
+  $("tagBtn").onclick = () => { if (!$("quick").hidden) return closeQuick(); setTagging(!tagging); };
 
-  function openForm(point) {
-    draft = point.toArray().map(v => +v.toFixed(4));
-    draftPin = el("div", "pin draft"); draftPin.append(el("span", "core")); draftPin._pos = point.clone(); $("pins").append(draftPin);
-    $("form").hidden = false; $("formErr").textContent = "";
-    const last = store.get("lastTeam", ""); if (last && !$("fTeam").value) $("fTeam").value = last;
-    $("fBy").value = store.get("lastBy", "");
-    $("fTeam").focus();
+  const segButton = (label, color, onPick) => { const b = el("button"); b.type = "button"; b.setAttribute("aria-pressed", "false");
+    if (color) { b.style.setProperty("--c", color); b.append(el("span", "dot")); } b.append(document.createTextNode(label)); b.onclick = onPick; return b; };
+  const press = (group, val) => { for (const b of $(group).children) b.setAttribute("aria-pressed", String(b.dataset.v === val)); };
+  function pickTeam(tm) { qTeam = tm; press("qTeam", tm); if (tm === "Previous teams" && !qStatus) pickStatus("not_needed"); $("qErr").textContent = ""; }
+  function pickStatus(k) { qStatus = k; press("qStatus", k); $("qDateRow").hidden = k !== "moving_out"; if (k === "moving_out") $("qDate").focus(); $("qErr").textContent = ""; }
+  for (const tm of TEAMS) { const b = segButton(tm, null, () => pickTeam(tm)); b.dataset.v = tm; $("qTeam").append(b); }
+  for (const [k, st] of Object.entries(STATUSES)) { const b = segButton(st.label, st.color, () => pickStatus(k)); b.dataset.v = k; $("qStatus").append(b); }
+
+  // the box's 3D area: sample 3x3 rays inside it, take the median hit distance, place the corners there
+  function measureArea(r) {
+    if (!activeMesh) return null;
+    const cr = canvas.getBoundingClientRect();
+    const ray = (x, y) => { raycaster.setFromCamera(new THREE.Vector2(((x - cr.left) / cr.width) * 2 - 1, -((y - cr.top) / cr.height) * 2 + 1), camera); };
+    raycaster.near = 0.05; raycaster.far = 50;
+    const d = [];
+    for (const fx of [0.2, 0.5, 0.8]) for (const fy of [0.2, 0.5, 0.8]) {
+      ray(r.x + r.w * fx, r.y + r.h * fy);
+      const hit = raycaster.intersectObject(activeMesh, false).sort((a, b) => a.distance - b.distance)[0];
+      if (hit) d.push(hit.distance);
+    }
+    if (!d.length) return null;
+    d.sort((a, b) => a - b); const dist = d[Math.floor(d.length / 2)];
+    const at = (x, y) => { ray(x, y); return raycaster.ray.at(dist, new THREE.Vector3()); };
+    return { corners: [at(r.x, r.y), at(r.x + r.w, r.y), at(r.x + r.w, r.y + r.h), at(r.x, r.y + r.h)], center: at(r.x + r.w / 2, r.y + r.h / 2) };
   }
-  function closeForm() { $("form").hidden = true; draft = null; if (draftPin) { draftPin.remove(); draftPin = null; } }
-  $("fCancel").onclick = closeForm;
+
+  function openQuick(area, r) {
+    draft = area;
+    draftArea = mk("polygon", { class: "draft" }); draftArea._pts = area.corners; $("areas").append(draftArea);
+    const q = $("quick"); qTeam = null; qStatus = null; press("qTeam", ""); press("qStatus", "");
+    $("qDateRow").hidden = true; $("qDate").value = ""; $("qWhat").value = ""; $("qErr").textContent = "";
+    const last = store.get("lastTeam", ""); if (TEAMS.includes(last)) pickTeam(last);
+    q.hidden = false;
+    const qw = q.offsetWidth, qh = q.offsetHeight;
+    const listBox = $("list").getBoundingClientRect(), rightEdge = (listBox.width && listBox.left > innerWidth / 2 ? listBox.left : innerWidth) - 12;
+    let left = r.x + r.w + 14; if (left + qw > rightEdge) left = r.x - qw - 14; if (left < 16) left = Math.min(innerWidth - qw - 16, Math.max(16, r.x + r.w / 2 - qw / 2));
+    q.style.left = left + "px"; q.style.top = Math.max(16, Math.min(innerHeight - qh - 16, r.y)) + "px";
+    (q.querySelector('#qTeam button[aria-pressed="true"]') || q.querySelector("#qTeam button")).focus();
+  }
+  function closeQuick() { $("quick").hidden = true; draft = null; if (draftArea) { draftArea.remove(); draftArea = null; } }
+  $("qClose").onclick = closeQuick;
 
   function issueUrl(t) {
     const title = `${t.team} · ${statusLine(t)}${t.what ? " · " + t.what : ""}`;
@@ -596,45 +645,54 @@ try {
     ].filter((l, i, a) => l !== "" || a[i - 1] !== "").join("\n");
     return `https://github.com/${REPO}/issues/new?` + new URLSearchParams({ title, body }).toString();
   }
-  $("form").addEventListener("submit", (e) => {
+  $("quick").addEventListener("submit", (e) => {
     e.preventDefault();
-    const status = (new FormData($("form"))).get("status");
-    const t = { v: 1, frame: FRAME, pos: draft, team: $("fTeam").value.trim(), status, date: $("fDate").value, what: $("fWhat").value.trim(), note: $("fNote").value.trim(), by: $("fBy").value.trim() };
-    if (!t.team) return void ($("formErr").textContent = "Add your team or project name.");
-    if (!STATUSES[status]) return void ($("formErr").textContent = "Pick a status.");
-    if (status === "moving_out" && !t.date) return void ($("formErr").textContent = "Pick the date it's moving out.");
-    if (status !== "moving_out") delete t.date;
-    for (const k of ["what", "note", "by"]) if (!t[k]) delete t[k];
-    store.set("lastTeam", t.team); if (t.by) store.set("lastBy", t.by);
-    const url = issueUrl(t);
-    const win = window.open(url, "_blank"); if (win) win.opener = null;
+    if (!qTeam) return void ($("qErr").textContent = "Pick a team.");
+    if (!qStatus) return void ($("qErr").textContent = "Pick a status.");
+    if (qStatus === "moving_out" && !$("qDate").value) return void ($("qErr").textContent = "Pick the date it's moving out.");
+    const r4 = (v) => v.toArray().map(n => +n.toFixed(4));
+    const t = { v: 1, frame: FRAME, pos: r4(draft.center), area: draft.corners.map(r4), team: qTeam, status: qStatus };
+    if (qStatus === "moving_out") t.date = $("qDate").value;
+    if ($("qWhat").value.trim()) t.what = $("qWhat").value.trim();
+    store.set("lastTeam", qTeam);
+    const win = window.open(issueUrl(t), "_blank"); if (win) win.opener = null;
     pending.push({ key: "p" + Date.now(), created: Date.now(), t: validTag(t) }); store.set("pendingTags", pending);
-    closeForm(); setTagging(false); renderTags();
-    toast(win === null ? "Your browser blocked the GitHub tab — click the dashed pin → Open on GitHub again." : "Finish on GitHub: press “Submit new issue”. Your pin stays dashed until it's saved.", 7000);
+    closeQuick(); renderTags();
+    toast(win === null ? "Your browser blocked the GitHub tab — click the dashed pin → Open on GitHub again." : "Finish on GitHub: press “Submit new issue”. Your area stays dashed until it's saved.", 7000);
   });
 
-  // ---- clicks: arrows, tagging, deselect -----------------------------------------------------
+  // ---- pointer: arrows, box selection, deselect ----------------------------------------------
   const raycaster = new THREE.Raycaster(); const ndc = new THREE.Vector2();
   const setNdc = (e) => { const r = canvas.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); raycaster.setFromCamera(ndc, camera); };
   const arrowHit = () => { const hit = raycaster.intersectObjects(arrows.filter(a => a.visible), false)[0]; return hit ? hit.object : null; };
+  const boxOf = (a, b) => ({ x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) });
   let down = null;
-  canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; canvas.focus(); });
+  canvas.addEventListener("pointerdown", (e) => {
+    down = { x: e.clientX, y: e.clientY, t: performance.now() }; canvas.focus();
+    if (tagging && e.isPrimary) { sel = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId);
+      Object.assign($("sel").style, { left: e.clientX + "px", top: e.clientY + "px", width: "0px", height: "0px" }); $("sel").hidden = false; }
+  });
   canvas.addEventListener("pointerup", (e) => {
+    if (sel) {   // finish a box (a plain click makes a small box around the point)
+      let r = boxOf(sel, { x: e.clientX, y: e.clientY }); sel = null; $("sel").hidden = true; down = null;
+      if (r.w < 12 || r.h < 12) r = { x: e.clientX - 40, y: e.clientY - 40, w: 80, h: 80 };
+      $("hint").textContent = "Measuring…";
+      requestAnimationFrame(() => setTimeout(() => {
+        const area = measureArea(r);
+        if (!area) { $("hint").textContent = "Drag a box around the thing you want to tag"; return toast("Nothing there — drag the box over an object.", 2200); }
+        setTagging(false); openQuick(area, r);
+      }, 0));
+      return;
+    }
     if (!down) return; const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t; down = null;
     if (moved > 6 || dt > 600 || glide) return;
     setNdc(e);
     const a = arrowHit(); if (a && !tagging) return hopTo(a.userData.target);
-    if (tagging && activeMesh) {
-      raycaster.near = 0.05; raycaster.far = 50;
-      const hit = raycaster.intersectObject(activeMesh, false).sort((p, q) => p.distance - q.distance)[0];
-      if (!hit) return toast("Nothing there — click directly on an object.", 2200);
-      setTagging(false); openForm(hit.point);
-      return;
-    }
     if (!$("pop").hidden) { $("pop").hidden = true; selected = null; renderTags(); }
   });
   let moveQueued = false;
   canvas.addEventListener("pointermove", (e) => {
+    if (sel) { const r = boxOf(sel, { x: e.clientX, y: e.clientY }); Object.assign($("sel").style, { left: r.x + "px", top: r.y + "px", width: r.w + "px", height: r.h + "px" }); return; }
     if (moveQueued || e.buttons) return; moveQueued = true;
     requestAnimationFrame(() => { moveQueued = false; setNdc(e); const a = tagging ? null : arrowHit();
       hoverArrow = a; document.body.classList.toggle("over-arrow", !!a); canvas.title = a ? `Hop to spot ${a.userData.target.id}` : ""; });
@@ -642,11 +700,11 @@ try {
 
   // ---- keyboard ------------------------------------------------------------------------------
   addEventListener("keydown", (e) => {
-    if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) { if (e.key === "Escape") closeForm(); return; }
+    if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) { if (e.key === "Escape") closeQuick(); return; }
     const k = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" }[e.key];
     if (k) { e.preventDefault(); if (!glide) hopDir(k); return; }
-    if (e.key === "Escape") { if (!$("form").hidden) closeForm(); else if (tagging) setTagging(false); $("pop").hidden = true; $("help").hidden = true; }
-    else if (e.key === "t" || e.key === "T") { if ($("form").hidden) setTagging(!tagging); }
+    if (e.key === "Escape") { if (!$("quick").hidden) closeQuick(); else if (tagging) setTagging(false); $("pop").hidden = true; $("help").hidden = true; }
+    else if (e.key === "t" || e.key === "T") { if ($("quick").hidden) setTagging(!tagging); }
     else if (e.key === "?") $("help").hidden = !$("help").hidden;
   });
 

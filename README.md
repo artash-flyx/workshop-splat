@@ -6,7 +6,7 @@ A walkable 3D scan (Gaussian splat) of the robotics room. Teams use it to tag wh
 
 ## For teams
 - **Move:** click the orange arrows on the floor, or press the arrow keys, to hop between 9 spots. Click a dot on the map to jump. Drag to look around; WASD walks freely.
-- **Tag:** press **Tag an object**, click the thing, then pick your team and a status: *moving out by a date*, *no longer needed* (unused or a previous team's), or *long-term storage*.
+- **Tag:** press **Tag an area** and drag a box around the thing. In the small popup, pick a team (**Skyrunners, RoboSub, Escape Room, General, Previous teams**) and a status: *moving out by a date*, *no longer needed* (unused or a previous team's), or *long-term storage*. The area stays outlined in 3D for everyone.
 - **Save:** you're sent to GitHub with a pre-filled issue; press **Submit new issue**. This needs a free GitHub account. To change or remove a tag, open its pin → **Edit on GitHub**.
 
 ## For organizers
