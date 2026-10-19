@@ -4,16 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>Workshop Walkthrough</title>
+<title>Robotics Room Move-Out</title>
+<meta name="description" content="Walk the robotics room in 3D and tag what each team is moving out, retiring, or storing.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-  /* Deliberately single-theme: a dark ground lets the splat read; every color is painted explicitly. */
+  /* Single dark theme on purpose: the 3D room reads best on a dark ground. Every color is a token. */
   :root {
     color-scheme: dark;
-    --ground: #0d0f12; --panel: rgba(18, 21, 26, .86); --line: #2a3038; --ink: #e6e9ee;
-    --muted: #8b94a1; --accent: #ff8a3d; --accent-ink: #1a0d04;
+    --ground: #0d0f12; --panel: rgba(17, 20, 25, .9); --panel-solid: #12161b; --line: #2a3038; --line-2: #3a434e;
+    --ink: #e6e9ee; --muted: #8b94a1; --accent: #ff8a3d; --accent-ink: #1a0d04;
+    --st-moving: #ffd166; --st-unneeded: #ff6b6b; --st-storage: #5ab8ff;
     --ui: "IBM Plex Sans Condensed", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif;
     --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   }
@@ -21,51 +23,126 @@
   html, body { height: 100%; }
   body { margin: 0; background: var(--ground); color: var(--ink); font: 14px/1.4 var(--ui); overflow: hidden; }
   [hidden] { display: none !important; }
+  button, input, select, textarea { font: inherit; color: inherit; }
   #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
-  .panel { position: fixed; background: var(--panel); border: 1px solid var(--line); border-radius: 3px;
+  body.tagging #c { cursor: crosshair; }
+  body.over-arrow #c { cursor: pointer; }
+  .panel { position: fixed; background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-  #top { top: calc(12px + env(safe-area-inset-top, 0px)); left: 16px; right: 120px; padding: 8px 10px 8px 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  #top b { font-weight: 600; letter-spacing: .3px; white-space: nowrap; }
-  #stat { color: var(--muted); font: 12px var(--mono); white-space: nowrap; }
-  #versions { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 2px; overflow: hidden; }
-  #versions button { border: 0; border-right: 1px solid var(--line); border-radius: 0; background: transparent; padding: 5px 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 0; }
-  #versions button:last-child { border-right: 0; }
-  #versions button .k { font: 11px var(--mono); color: var(--muted); }
-  #versions button .d { font: 11px var(--mono); color: var(--muted); }
-  #versions button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
-  #versions button[aria-pressed="true"] .k, #versions button[aria-pressed="true"] .d { color: var(--accent-ink); }
-  #toggleHelp { top: calc(12px + env(safe-area-inset-top, 0px)); right: 16px; }
-  #help { left: 16px; bottom: calc(68px + env(safe-area-inset-bottom, 0px)); padding: 12px 14px; width: 300px; }
-  #help h2 { margin: 0 0 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
-  #help h2 + table { margin-bottom: 10px; }
-  #help table { border-collapse: collapse; width: 100%; }
-  #help td { padding: 2px 0; vertical-align: top; }
-  #help td:first-child { color: var(--muted); width: 104px; white-space: nowrap; }
-  #help p { margin: 0; color: var(--muted); }
-  kbd { font: 11px var(--mono); color: var(--ink); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 2px; padding: 0 4px; background: #161a20; }
-  #bar { left: 16px; right: 16px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); padding: 8px 10px; display: flex; gap: 10px; align-items: center; }
-  button { font: 500 13px var(--ui); color: var(--ink); background: #1a1f26; border: 1px solid var(--line); border-radius: 2px; padding: 6px 11px; cursor: pointer; white-space: nowrap; }
-  button:hover { border-color: #46505c; }
-  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  #play.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-  input[type=range] { accent-color: var(--accent); }
-  #scrub { flex: 1; min-width: 60px; }
-  .lab { color: var(--muted); font: 12px var(--mono); white-space: nowrap; }
-  #speed { width: 90px; }
-  #loading { position: fixed; inset: 0; display: grid; place-items: center; padding-inline: 16px; pointer-events: none; }
+  .btn { background: #1a1f26; border: 1px solid var(--line); border-radius: 3px; padding: 7px 12px; cursor: pointer; white-space: nowrap; font-weight: 500; }
+  .btn:hover { border-color: var(--line-2); }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn.ghost { background: transparent; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .muted { color: var(--muted); }
+  .mono { font-family: var(--mono); }
+  kbd { font: 11px var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 2px; padding: 0 4px; background: #161a20; }
+
+  /* top-left: title + status counts */
+  #head { top: calc(12px + env(safe-area-inset-top, 0px)); left: 16px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; max-width: min(460px, calc(100% - 200px)); }
+  #head h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: .2px; }
+  #counts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font: 12px var(--mono); padding: 2px 7px; border: 1px solid var(--line); border-radius: 999px; background: #151a20; white-space: nowrap; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--c, var(--muted)); }
+  #stat { font: 11px var(--mono); color: var(--muted); }
+
+  /* top-right: minimap + quality */
+  #map { top: calc(12px + env(safe-area-inset-top, 0px)); right: 16px; padding: 8px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+  #map svg { display: block; width: 168px; height: auto; }
+  #map .hop { cursor: pointer; }
+  #map .row { display: flex; gap: 6px; align-items: center; justify-content: space-between; font: 11px var(--mono); color: var(--muted); }
+  #quality { display: flex; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+  #quality button { border: 0; background: transparent; padding: 3px 8px; cursor: pointer; font: 11px var(--mono); color: var(--muted); }
+  #quality button[aria-pressed="true"] { background: var(--line); color: var(--ink); }
+
+  /* right: tag list */
+  #list { right: 16px; top: calc(206px + env(safe-area-inset-top, 0px)); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); width: 300px; display: flex; flex-direction: column; overflow: hidden; }
+  #list header { padding: 10px 12px 8px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+  #list header .top { display: flex; justify-content: space-between; align-items: baseline; }
+  #list h2 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 600; }
+  #filters { display: flex; gap: 4px; flex-wrap: wrap; }
+  #filters button { font: 11px var(--mono); padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); background: transparent; cursor: pointer; color: var(--muted); display: inline-flex; gap: 5px; align-items: center; }
+  #filters button[aria-pressed="true"] { color: var(--ink); border-color: var(--line-2); background: #1c222a; }
+  #teamFilter { width: 100%; background: #0f1317; border: 1px solid var(--line); border-radius: 3px; padding: 5px 8px; }
+  #items { flex: 1; overflow-y: auto; padding: 4px 0; }
+  .item { display: grid; grid-template-columns: 10px 1fr; gap: 4px 9px; padding: 8px 12px; cursor: pointer; border-left: 2px solid transparent; }
+  .item:hover, .item.sel { background: #161b21; border-left-color: var(--c); }
+  .item .dot { margin-top: 5px; }
+  .item .t { font-weight: 600; }
+  .item .s { font: 11px var(--mono); color: var(--muted); grid-column: 2; }
+  .item.pending { opacity: .7; }
+  #empty { padding: 14px 12px; color: var(--muted); }
+  #list footer { padding: 8px 12px; border-top: 1px solid var(--line); display: flex; gap: 8px; justify-content: space-between; align-items: center; font: 11px var(--mono); color: var(--muted); }
+  #list footer a { color: var(--muted); }
+
+  /* bottom bar */
+  #bar { left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); padding: 8px; display: flex; gap: 8px; align-items: center; max-width: calc(100% - 32px); }
+  #hint { font-size: 13px; color: var(--muted); padding: 0 6px; }
+  body.tagging #hint { color: var(--ink); }
+
+  /* pins */
+  #pins { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .pin { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 6px; transform-origin: 0 50%; will-change: transform; }
+  .pin .core { width: 14px; height: 14px; border-radius: 50%; background: var(--c); border: 2px solid #0d0f12; box-shadow: 0 0 0 1px var(--c); flex: none; }
+  .pin.pending .core { background: transparent; border: 2px dashed var(--c); box-shadow: none; }
+  .pin.draft .core { background: #fff; box-shadow: 0 0 0 3px var(--accent); }
+  .pin .lbl { background: rgba(13, 15, 18, .86); border: 1px solid var(--line); border-radius: 3px; padding: 1px 6px; font-size: 12px; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+  .pin.far .lbl { display: none; }
+  .pin.sel .lbl { border-color: var(--c); }
+
+  /* popover + form */
+  .sheet { position: fixed; z-index: 10; background: var(--panel-solid); border: 1px solid var(--line-2); border-radius: 6px; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+  #pop { width: 290px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  #pop .st { display: inline-flex; gap: 6px; align-items: center; font: 12px var(--mono); }
+  #pop h3 { margin: 0; font-size: 16px; }
+  #pop .meta { font: 11px var(--mono); color: var(--muted); }
+  #pop .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  #pop a.btn { text-decoration: none; }
+  #form { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(440px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+  #form h3 { margin: 0; font-size: 18px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label, .field legend { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; padding: 0; }
+  .field input, .field textarea { background: #0b0e11; border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; }
+  .field textarea { resize: vertical; min-height: 54px; }
+  fieldset.field { border: 0; margin: 0; padding: 0; }
+  .opts { display: grid; gap: 6px; }
+  .opt { display: grid; grid-template-columns: 18px 1fr; gap: 2px 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
+  .opt:has(input:checked) { border-color: var(--c); background: #151a20; }
+  .opt input { margin: 3px 0 0; accent-color: var(--c); }
+  .opt b { font-weight: 600; }
+  .opt span { grid-column: 2; font-size: 12px; color: var(--muted); }
+  .field .opt { text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 14px; color: var(--ink); }
+  #formErr { color: #ffb38a; min-height: 1em; font-size: 13px; }
+  #form .acts { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  #ghNote { font-size: 12px; color: var(--muted); }
+
+  #toast { left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); padding: 9px 14px; max-width: calc(100% - 32px); font-size: 13px; }
+  #help { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+  #help h3 { margin: 0; font-size: 18px; }
+  #help ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+  #help table { border-collapse: collapse; }
+  #help td { padding: 2px 10px 2px 0; vertical-align: top; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; padding-inline: 16px; pointer-events: none; z-index: 5; }
   #loading .panel { position: static; padding: 16px 20px; width: min(340px, 100%); }
-  #loadMsg { font-weight: 500; }
-  #loadSub { color: var(--muted); font: 12px var(--mono); margin-top: 4px; }
   #prog { height: 3px; background: var(--line); margin-top: 12px; overflow: hidden; }
   #prog i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  #loadSub { font: 12px var(--mono); color: var(--muted); margin-top: 4px; }
   #err { color: #ffb38a; margin-top: 8px; }
-  @media (max-width: 760px) {
-    #top { right: 16px; top: calc(54px + env(safe-area-inset-top, 0px)); }
-    #help { width: auto; right: 16px; bottom: calc(108px + env(safe-area-inset-bottom, 0px)); font-size: 13px; }
-    #bar { flex-wrap: wrap; }
-    #scrub { order: 10; flex-basis: 100%; }
-    .wide { display: none; }
+  #listToggle { display: none; }
+
+  @media (max-width: 820px) {
+    #head { max-width: calc(100% - 32px); right: auto; }
+    #map { top: auto; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); right: 16px; }
+    #map svg { width: 120px; }
+    #list { left: 16px; right: 16px; width: auto; top: auto; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); max-height: 55%; z-index: 4; }
+    #list.collapsed { display: none; }
+    #listToggle { display: inline-block; }
+    #bar { left: 16px; right: 16px; transform: none; justify-content: space-between; }
+    #hint { display: none; }
+    #toast { bottom: calc(130px + env(safe-area-inset-bottom, 0px)); }
   }
+  @media (min-width: 821px) { #list.collapsed { display: flex; } }
   @media (prefers-reduced-motion: reduce) { #prog i { transition: none; } }
 </style>
 <script type="importmap">
@@ -77,49 +154,78 @@
 </script>
 </head>
 <body>
-<canvas id="c" tabindex="0" aria-label="3D view of the workshop"></canvas>
+<canvas id="c" tabindex="0" aria-label="3D view of the robotics room"></canvas>
+<div id="pins" aria-hidden="true"></div>
 
-<div id="top" class="panel">
-  <b>Workshop Walkthrough</b>
-  <div id="versions" role="group" aria-label="Model version"></div>
-  <span id="stat">loading…</span>
+<div id="head" class="panel">
+  <h1>Robotics Room Move-Out</h1>
+  <div id="counts"></div>
+  <div id="stat">loading…</div>
 </div>
-<button id="toggleHelp" class="panel" title="Show or hide the controls (H)">Controls</button>
 
-<div id="help" class="panel">
-  <h2>Compare</h2>
-  <table>
-    <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd></td><td>switch model, same viewpoint</td></tr>
-    <tr><td><kbd>B</kbd></td><td>flip back to the previous model</td></tr>
-  </table>
-  <h2>Walk</h2>
-  <table>
-    <tr><td><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></td><td>move (or arrow keys)</td></tr>
-    <tr><td><kbd>Q</kbd> / <kbd>E</kbd></td><td>down / up</td></tr>
-    <tr><td>drag</td><td>look around</td></tr>
-    <tr><td>right-drag</td><td>slide sideways</td></tr>
-    <tr><td>scroll</td><td>step forward / back</td></tr>
-    <tr><td><kbd>Shift</kbd> / <kbd>Ctrl</kbd></td><td>faster / slower</td></tr>
-  </table>
-  <h2>Filmed path</h2>
-  <table>
-    <tr><td><kbd>Space</kbd></td><td>play or pause the tour</td></tr>
-    <tr><td><kbd>N</kbd> / <kbd>P</kbd></td><td>next / previous filmed view</td></tr>
-    <tr><td><kbd>R</kbd></td><td>back to the first view</td></tr>
-    <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>narrower / wider lens</td></tr>
-  </table>
-  <p>On a phone: drag to look, two fingers to move.</p>
+<div id="map" class="panel">
+  <svg id="mapSvg" viewBox="0 0 120 80" role="group" aria-label="Room map: click a point to jump there"></svg>
+  <div class="row"><span id="where">—</span>
+    <div id="quality" role="group" aria-label="Model quality">
+      <button data-q="full" aria-pressed="false" title="Highest detail (needs a decent GPU)">Full</button>
+      <button data-q="lite" aria-pressed="false" title="Lighter model for phones and older laptops">Lite</button>
+    </div>
+  </div>
 </div>
+
+<aside id="list" class="panel collapsed" aria-label="Tags">
+  <header>
+    <div class="top"><h2>Tags</h2><span class="muted mono" id="listCount"></span></div>
+    <div id="filters" role="group" aria-label="Filter by status"></div>
+    <input id="teamFilter" type="search" placeholder="Filter by team or item…" aria-label="Filter by team or item">
+  </header>
+  <div id="items"></div>
+  <div id="empty" hidden>No tags yet. Use <b>Tag an object</b> to add the first one.</div>
+  <footer><span id="source">—</span><span><a id="ghIssues" target="_blank" rel="noopener">GitHub</a> · <a href="#" id="csv">CSV</a></span></footer>
+</aside>
 
 <div id="bar" class="panel">
-  <button id="play" title="Fly the path the phone was filmed along (Space)">Play tour</button>
-  <button id="prev" title="Previous filmed view (P)" aria-label="Previous filmed view">◀</button>
-  <button id="next" title="Next filmed view (N)" aria-label="Next filmed view">▶</button>
-  <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Position along the filmed path">
-  <span class="lab" id="frameLab">view 1</span>
-  <label class="lab wide" for="speed">speed</label>
-  <input id="speed" class="wide" type="range" min="-3" max="3" step="0.1" value="0">
-  <button id="reset" title="Back to the first view (R)">Reset</button>
+  <button class="btn primary" id="tagBtn">Tag an object</button>
+  <span id="hint">Click the orange arrows to hop · drag to look around</span>
+  <button class="btn" id="listToggle">Tags</button>
+  <button class="btn ghost" id="helpBtn" title="How this works (?)">Help</button>
+</div>
+
+<div id="toast" class="panel" role="status" hidden></div>
+
+<div id="pop" class="sheet" hidden role="dialog" aria-label="Tag details"></div>
+
+<form id="form" class="sheet" hidden aria-label="New tag">
+  <h3>Tag this object</h3>
+  <div class="field"><label for="fTeam">Team or project</label>
+    <input id="fTeam" list="teamList" required maxlength="60" placeholder="e.g. RoboSub" autocomplete="off">
+    <datalist id="teamList"></datalist></div>
+  <div class="field"><label for="fWhat">What is it?</label>
+    <input id="fWhat" maxlength="80" placeholder="e.g. blue shelving unit, AUV frame, battery bins"></div>
+  <fieldset class="field"><legend>Status</legend><div class="opts" id="fStatus"></div></fieldset>
+  <div class="field" id="dateField"><label for="fDate">Moving out by</label><input id="fDate" type="date"></div>
+  <div class="field"><label for="fNote">Note (optional)</label><textarea id="fNote" maxlength="400" placeholder="Anything the move-out crew should know"></textarea></div>
+  <div class="field"><label for="fBy">Your name (optional)</label><input id="fBy" maxlength="60" autocomplete="name"></div>
+  <div id="formErr" role="alert"></div>
+  <p id="ghNote">Tags are saved as issues in a public GitHub repo, so you need a free GitHub account. The next page is pre-filled — just press <b>Submit new issue</b>.</p>
+  <div class="acts"><button type="button" class="btn ghost" id="fCancel">Cancel</button><button type="submit" class="btn primary">Continue on GitHub</button></div>
+</form>
+
+<div id="help" class="sheet" hidden role="dialog" aria-label="How this works">
+  <h3>How this works</h3>
+  <p class="muted" style="margin:0">A 3D scan of the robotics room. Walk around, find your team's things, and tag what happens to them before the move.</p>
+  <ol>
+    <li><b>Move:</b> click the orange arrows on the floor (or press the arrow keys) to hop between 9 spots. Click a dot on the map to jump. Drag to look around.</li>
+    <li><b>Tag:</b> press <b>Tag an object</b>, click the thing, then pick your team and a status: <i>moving out by a date</i>, <i>no longer needed</i>, or <i>long-term storage</i>.</li>
+    <li><b>Save:</b> you're sent to GitHub with everything filled in. Press <b>Submit new issue</b>. Your pin shows as dashed until it's saved, then everyone sees it.</li>
+    <li><b>Change or remove a tag:</b> click its pin → <b>Edit on GitHub</b>.</li>
+  </ol>
+  <table class="muted">
+    <tr><td><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></td><td>hop between spots</td></tr>
+    <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> <kbd>Q</kbd><kbd>E</kbd></td><td>walk freely, down / up (hold <kbd>Shift</kbd> to go faster)</td></tr>
+    <tr><td><kbd>T</kbd></td><td>tag an object · <kbd>Esc</kbd> cancel</td></tr>
+  </table>
+  <div style="display:flex;justify-content:flex-end"><button class="btn primary" id="helpClose">Got it</button></div>
 </div>
 
 <div id="loading"><div class="panel">
@@ -133,152 +239,455 @@
 import * as THREE from "three";
 import { SparkRenderer, SplatMesh, SparkControls } from "@sparkjsdev/spark";
 
+// ---------------------------------------------------------------------------------------------
+// Configuration
+const REPO = "artash-flyx/workshop-splat";             // tags live as issues here
+const FRAME = "v3";                                     // coordinate frame tags are stored in
+const STATUSES = {
+  moving_out:   { label: "Moving out",        long: "Moving out by a date",   desc: "Your team is taking it. Pick the date it leaves.", color: "var(--st-moving)" },
+  not_needed:   { label: "No longer needed",  long: "No longer needed",       desc: "Unused, or a previous team's — OK to clear out.",  color: "var(--st-unneeded)" },
+  long_storage: { label: "Long-term storage", long: "Long-term storage",      desc: "Keep it, but it goes to storage.",                 color: "var(--st-storage)" },
+};
 const $ = (id) => document.getElementById(id);
-const fail = (msg) => { $("loading").hidden = false; $("err").textContent = msg; $("loadMsg").textContent = "Could not load the room"; };
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+                set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+const fmtDate = (s) => { if (!s) return ""; const d = new Date(s + "T12:00:00"); return isNaN(d) ? s : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); };
+const statusLine = (t) => t.status === "moving_out" ? `Moving out by ${fmtDate(t.date)}` : STATUSES[t.status].label;
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+let toastTimer;
+function toast(msg, ms = 3500) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, ms); }
+function fail(msg) { $("loading").hidden = false; $("err").textContent = msg; $("loadMsg").textContent = "Could not load the room"; }
 
 try {
   if (location.protocol === "file:") throw new Error("Open this through a web server, not as a file.");
+  // ---- renderer ------------------------------------------------------------------------------
   const canvas = $("c");
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  const camera = new THREE.PerspectiveCamera(70, 1, 0.01, 1000);
+  const camera = new THREE.PerspectiveCamera(72, 1, 0.01, 1000);
   const size = () => { renderer.setSize(canvas.clientWidth, canvas.clientHeight, false); camera.aspect = canvas.clientWidth / canvas.clientHeight; camera.updateProjectionMatrix(); };
   size(); addEventListener("resize", size);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0d0f12);
   scene.add(new SparkRenderer({ renderer }));
 
-  const [cfg, poses] = await Promise.all(["versions.json", "poses.json"].map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u + " missing"); return r.json(); })));
+  const [cfg, poses, hopsCfg] = await Promise.all(["versions.json", "poses.json", "hops.json"].map(u =>
+    fetch(u).then(r => { if (!r.ok) throw new Error(u + " missing"); return r.json(); })));
 
-  // Filmed path (shared by every version — each splat carries its own matrix into this frame).
-  const keys = poses.cameras.map(c => ({ p: new THREE.Vector3(...c.p), q: new THREE.Quaternion(...c.q) }));
-  const steps = keys.slice(1).map((c, i) => c.p.distanceTo(keys[i].p)).sort((a, b) => a - b);
-  const medStep = steps[Math.floor(steps.length / 2)] || 0.05;
-  const seg = [0];
-  for (let i = 1; i < keys.length; i++) seg.push(seg[i - 1] + (keys[i].p.distanceTo(keys[i - 1].p) > medStep * 10 ? 1 : 0));
-  const sm = keys.map((k, i) => {
-    const acc = new THREE.Vector3(); let w = 0;
-    for (let j = -3; j <= 3; j++) { const kk = keys[i + j]; if (!kk || seg[i + j] !== seg[i]) continue; const ww = Math.exp(-(j * j) / 4); acc.addScaledVector(kk.p, ww); w += ww; }
-    return acc.multiplyScalar(1 / w);
-  });
-  const poseAt = (t) => {
-    const i = Math.max(0, Math.min(keys.length - 2, Math.floor(t)));
-    const f = seg[i + 1] === seg[i] ? t - i : 0;
-    return { p: sm[i].clone().lerp(sm[i + 1], f), q: keys[i].q.clone().slerp(keys[i + 1].q, f) };
-  };
-
-  // ---- versions: lazily loaded, kept in memory, toggled by visibility so switching is instant ----
-  const versions = cfg.versions;
-  const meshes = {};       // id -> SplatMesh
-  let current = null, previous = null;
+  // ---- models: Full (best) and Lite --------------------------------------------------------
+  const byId = Object.fromEntries(cfg.versions.map(v => [v.id, v]));
+  const FULL = byId.final || byId.hq || cfg.versions[0];
+  const LITE = byId.lite || byId.original || FULL;
   const phone = matchMedia("(pointer: coarse)").matches && Math.min(screen.width, screen.height) < 820;
-  const qs = new URLSearchParams(location.search);
-  const startId = qs.get("v") || (phone ? cfg.phone_default : cfg.default) || versions[0].id;
-
-  versions.forEach((v, i) => {
-    const b = document.createElement("button");
-    b.dataset.id = v.id; b.setAttribute("aria-pressed", "false"); b.title = v.note || v.label;
-    b.innerHTML = `<span><span class="k">${i + 1}</span> ${v.label}</span><span class="d">${v.detail}</span>`;
-    b.onclick = () => show(v.id);
-    $("versions").append(b);
-  });
-
-  function load(v) {
-    if (meshes[v.id]) return meshes[v.id];
-    const m = new SplatMesh({
-      url: v.file,
-      onProgress: (e) => {
-        if (current !== v.id || !e) return;
+  const meshes = {}; let quality = null, activeMesh = null;
+  async function setQuality(q) {
+    const v = q === "lite" ? LITE : FULL; quality = q;
+    for (const b of $("quality").children) b.setAttribute("aria-pressed", String(b.dataset.q === q));
+    store.set("quality", q);
+    let m = meshes[v.id];
+    if (!m) {
+      m = meshes[v.id] = new SplatMesh({ url: v.file, onProgress: (e) => {
+        if (!e || quality !== q) return;
         if (e.total) $("prog").firstElementChild.style.width = (95 * e.loaded / e.total).toFixed(1) + "%";
-        $("loadSub").textContent = `${v.label} · ${(e.loaded / 1048576).toFixed(0)}${e.total ? " / " + (e.total / 1048576).toFixed(0) : ""} MB`;
-      },
-    });
-    m.applyMatrix4(new THREE.Matrix4().fromArray(v.matrix.flat()).transpose());
-    m.visible = false;
-    scene.add(m);
-    meshes[v.id] = m;
-    return m;
-  }
-
-  let statLabel = "";
-  async function show(id) {
-    const v = versions.find(x => x.id === id) || versions[0];
-    if (v.id !== current) { previous = current; current = v.id; }
-    for (const b of $("versions").children) b.setAttribute("aria-pressed", String(b.dataset.id === v.id));
-    try { history.replaceState(null, "", "?v=" + v.id); } catch {}
-    const m = load(v);
-    const ready = m.isInitialized;
-    if (!ready) {
-      $("loading").hidden = false; $("err").textContent = "";
-      $("loadMsg").textContent = `Loading ${v.label}…`; $("loadSub").textContent = v.detail;
+        $("loadSub").textContent = `${(e.loaded / 1048576).toFixed(0)}${e.total ? " / " + (e.total / 1048576).toFixed(0) : ""} MB`;
+      } });
+      m.applyMatrix4(new THREE.Matrix4().fromArray(v.matrix.flat()).transpose());
+      m.visible = false; scene.add(m);
+    }
+    if (!m.isInitialized) {
+      $("loading").hidden = false; $("loadMsg").textContent = q === "lite" ? "Loading the lite model…" : "Loading the room…";
       $("prog").firstElementChild.style.width = "0%";
-      try { await m.initialized; } catch (e) { if (current === v.id) fail(`${v.file}: ${e.message || e}`); return; }
-      if (current !== v.id) return;          // the viewer moved on while this loaded
+      await m.initialized;
+      if (quality !== q) return;
       $("loading").hidden = true;
     }
-    for (const [k, mesh] of Object.entries(meshes)) mesh.visible = (k === v.id);
-    statLabel = `${v.label} · ${(m.numSplats / 1e6).toFixed(2)}M`;
-    $("stat").textContent = statLabel;
+    for (const mm of Object.values(meshes)) mm.visible = (mm === m);
+    activeMesh = m;
+    $("stat").textContent = `${(m.numSplats / 1e6).toFixed(1)}M gaussians`;
   }
+  for (const b of $("quality").children) b.onclick = () => setQuality(b.dataset.q);
 
+  // ---- controls: drag to look, WASD/QE to walk; arrow keys are reserved for hopping ----------
   const controls = new SparkControls({ canvas });
   const fps = controls.fpsMovement, ptr = controls.pointerControls;
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  fps.keycodeMoveMapping = { KeyW: V(0, 0, -1), KeyS: V(0, 0, 1), KeyA: V(-1, 0, 0), KeyD: V(1, 0, 0), KeyE: V(0, 1, 0), KeyQ: V(0, -1, 0) };
   const baseSpeed = (poses.cam_extent || 4) * 0.09;
-  const applySpeed = () => { fps.moveSpeed = baseSpeed * Math.pow(2, +$("speed").value); ptr.scrollSpeed = 0.0015 * baseSpeed; ptr.slideSpeed = 0.006 * baseSpeed; };
-  applySpeed(); $("speed").addEventListener("input", applySpeed);
+  fps.moveSpeed = baseSpeed; ptr.scrollSpeed = 0.0015 * baseSpeed; ptr.slideSpeed = 0.006 * baseSpeed;
 
-  let tourT = 0, playing = false;
-  const setPose = (t) => { const { p, q } = poseAt(t); camera.position.copy(p); camera.quaternion.copy(q); };
-  const syncUi = () => {
-    $("scrub").value = Math.round(1000 * tourT / (keys.length - 1));
-    $("frameLab").textContent = `view ${Math.round(tourT) + 1}/${keys.length}`;
-    $("play").textContent = playing ? "Pause tour" : "Play tour";
-    $("play").classList.toggle("on", playing);
-  };
-  const goView = (i) => { tourT = ((i % keys.length) + keys.length) % keys.length; setPose(tourT); syncUi(); };
-  const setPlaying = (v) => { playing = v; fps.enable = !v; ptr.enable = !v; syncUi(); };
-  $("play").onclick = () => setPlaying(!playing);
-  $("next").onclick = () => { setPlaying(false); goView(Math.round(tourT) + 5); };
-  $("prev").onclick = () => { setPlaying(false); goView(Math.round(tourT) - 5); };
-  $("reset").onclick = () => { setPlaying(false); goView(0); };
-  $("scrub").addEventListener("input", () => { setPlaying(false); tourT = (keys.length - 1) * $("scrub").value / 1000; setPose(tourT); syncUi(); });
-  $("toggleHelp").onclick = () => { $("help").hidden = !$("help").hidden; };
-  if (matchMedia("(max-width: 760px)").matches) $("help").hidden = true;
-  addEventListener("keydown", (e) => {
-    if (e.target.tagName === "INPUT") return;
-    const n = Number(e.key);
-    if (n >= 1 && n <= versions.length) show(versions[n - 1].id);
-    else if (e.code === "KeyB" && previous) show(previous);
-    else if (e.code === "Space") { e.preventDefault(); setPlaying(!playing); }
-    else if (e.code === "KeyN") $("next").onclick();
-    else if (e.code === "KeyP") $("prev").onclick();
-    else if (e.code === "KeyR") $("reset").onclick();
-    else if (e.code === "KeyH") $("toggleHelp").onclick();
-    else if (e.code === "BracketLeft" || e.code === "BracketRight") {
-      camera.fov = Math.max(30, Math.min(110, camera.fov + (e.code === "BracketLeft" ? -5 : 5))); camera.updateProjectionMatrix();
-    }
+  // ---- hop grid ------------------------------------------------------------------------------
+  const hops = hopsCfg.hops.map(h => ({ ...h, v: new THREE.Vector3(...h.p) }));
+  const hopAt = (r, c) => hops.find(h => h.row === r && h.col === c);
+  let glide = null;                         // {from, to, q0, q1, t0, dur}
+  const ease = (t) => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  function nearestHop(p = camera.position) {
+    let best = hops[0], bd = Infinity;
+    for (const h of hops) { const d = Math.hypot(h.v.x - p.x, h.v.z - p.z); if (d < bd) { bd = d; best = h; } }
+    return best;
+  }
+  function hopTo(h, lookAt) {
+    const q1 = camera.quaternion.clone();
+    if (lookAt) { const m = new THREE.Matrix4().lookAt(h.v, lookAt, new THREE.Vector3(0, 1, 0)); q1.setFromRotationMatrix(m); }
+    glide = { from: camera.position.clone(), to: h.v.clone(), q0: camera.quaternion.clone(), q1, t0: performance.now(), dur: 650 };
+    fps.enable = ptr.enable = false;
+  }
+
+  // Floor arrows: four chevrons on a virtual ground plane under the camera, pointing at neighbour spots.
+  const chevron = new THREE.Shape();
+  chevron.moveTo(0, 0.11); chevron.lineTo(0.1, -0.02); chevron.lineTo(0.05, -0.02); chevron.lineTo(0, 0.045);
+  chevron.lineTo(-0.05, -0.02); chevron.lineTo(-0.1, -0.02); chevron.closePath();
+  const chevGeo = new THREE.ShapeGeometry(chevron); chevGeo.rotateX(-Math.PI / 2);   // lie flat, tip toward -z
+  // one arrow per direction sector (ahead/right/behind/left in room axes): the nearest spot that way
+  const SECTORS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  const neighbours = new Map();
+  for (const h of hops) neighbours.set(h, SECTORS.map(([sx, sz]) => {
+    let best = null, bd = Infinity;
+    for (const o of hops) { if (o === h) continue;
+      const dx = o.v.x - h.v.x, dz = o.v.z - h.v.z, d = Math.hypot(dx, dz);
+      if ((dx * sx + dz * sz) / d < Math.SQRT1_2) continue;      // outside this 90-degree sector
+      if (d < bd) { bd = d; best = o; } }
+    return best; }));
+  const arrows = SECTORS.map((_, si) => {
+    const mat = new THREE.MeshBasicMaterial({ color: 0xff8a3d, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
+    const m = new THREE.Mesh(chevGeo, mat); m.renderOrder = 999; m.userData = { si, target: null }; scene.add(m); return m;
   });
-  canvas.addEventListener("pointerdown", () => { if (playing) setPlaying(false); canvas.focus(); });
+  const arrowDrop = Math.min(0.45, Math.max(0.3, (hopsCfg.eye_y - hopsCfg.floor_y) * 0.4)), arrowRadius = 0.95;
+  let hoverArrow = null;
+  function placeArrows() {
+    const h = nearestHop();
+    for (const a of arrows) {
+      const t = neighbours.get(h)[a.userData.si];
+      a.userData.target = t; a.visible = !!t && !glide;
+      if (!t) continue;
+      const dir = new THREE.Vector3(t.v.x - camera.position.x, 0, t.v.z - camera.position.z);
+      if (dir.lengthSq() < 1e-6) dir.set(t.v.x - h.v.x, 0, t.v.z - h.v.z);
+      dir.normalize();
+      a.position.set(camera.position.x + dir.x * arrowRadius, camera.position.y - arrowDrop, camera.position.z + dir.z * arrowRadius);
+      a.rotation.set(0, Math.atan2(-dir.x, -dir.z), 0);
+      const s = a === hoverArrow ? 1.3 : 1.05; a.scale.set(s, s, s);
+      a.material.color.set(a === hoverArrow ? 0xffffff : 0xff8a3d);
+    }
+  }
 
-  window.viewer = { camera, show, goView, poseAt, keys, meshes };   // console access for debugging
-  goView(0);
-  let last = performance.now(), frames = 0, fpsT = last;
+  // Minimap: the 3x3 spots, your heading, and every tag as a coloured dot.
+  const svgNS = "http://www.w3.org/2000/svg";
+  const mapSvg = $("mapSvg");
+  // map covers the whole room (2-98% of the scan's points) plus every spot
+  const xs = [...hops.map(h => h.v.x), poses.bounds_lo[0], poses.bounds_hi[0]], zs = [...hops.map(h => h.v.z), poses.bounds_lo[2], poses.bounds_hi[2]];
+  const bx = [Math.min(...xs), Math.max(...xs)], bz = [Math.min(...zs), Math.max(...zs)];
+  const padX = (bx[1] - bx[0]) * 0.04, padZ = (bz[1] - bz[0]) * 0.04;
+  const toMap = (x, z) => [10 + 100 * (x - bx[0] + padX) / (bx[1] - bx[0] + 2 * padX), 8 + 64 * (z - bz[0] + padZ) / (bz[1] - bz[0] + 2 * padZ)];
+  const mk = (n, a) => { const e = document.createElementNS(svgNS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  mapSvg.append(mk("rect", { x: 1, y: 1, width: 118, height: 78, rx: 3, fill: "none", stroke: "#2a3038" }));
+  const tagLayer = mk("g", {}), hopLayer = mk("g", {});
+  mapSvg.append(tagLayer, hopLayer);
+  const hopDots = {};
+  for (const h of hops) {
+    const [x, y] = toMap(h.v.x, h.v.z);
+    const g = mk("g", { class: "hop", tabindex: 0, role: "button", "aria-label": `Jump to spot ${h.id}` });
+    g.append(mk("circle", { cx: x, cy: y, r: 9, fill: "transparent" }), mk("circle", { cx: x, cy: y, r: 3.6, fill: "#3a434e", stroke: "#8b94a1", "stroke-width": .8 }));
+    g.onclick = () => hopTo(h); g.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); hopTo(h); } };
+    hopLayer.append(g); hopDots[h.id] = g.lastChild;
+  }
+  const heading = mk("path", { d: "M0,-9 L5,1 L-5,1 Z", fill: "#ff8a3d" });
+  const meDot = mk("circle", { r: 3, fill: "#ff8a3d", stroke: "#0d0f12", "stroke-width": 1 });
+  mapSvg.append(heading, meDot);
+  let lastNear = null;
+  function updateMap() {
+    const [x, y] = toMap(camera.position.x, camera.position.z);
+    const f = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    const ang = Math.atan2(f.x, -f.z) * 180 / Math.PI;
+    heading.setAttribute("transform", `translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${ang.toFixed(0)})`);
+    meDot.setAttribute("cx", x.toFixed(1)); meDot.setAttribute("cy", y.toFixed(1));
+    const n = nearestHop();
+    if (n !== lastNear) {
+      for (const [id, c] of Object.entries(hopDots)) c.setAttribute("fill", id === n.id ? "#ff8a3d" : "#3a434e");
+      $("where").textContent = `spot ${n.id}`; lastNear = n;
+    }
+  }
+
+  // Arrow keys hop relative to where you're facing.
+  function hopDir(kind) {
+    const h = nearestHop(); const f = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion); f.y = 0; f.normalize();
+    const want = kind === "up" ? f : kind === "down" ? f.clone().negate() : kind === "left" ? new THREE.Vector3(f.z, 0, -f.x) : new THREE.Vector3(-f.z, 0, f.x);
+    let best = null, bd = Math.cos(Math.PI * 5 / 12);   // within 75 degrees of the key direction
+    for (const a of arrows) { const t = a.userData.target; if (!t) continue;
+      const d = new THREE.Vector3(t.v.x - h.v.x, 0, t.v.z - h.v.z).normalize().dot(want); if (d > bd) { bd = d; best = t; } }
+    if (best) hopTo(best); else toast("No spot that way — try another arrow.", 1800);
+  }
+
+  // ---- tags ----------------------------------------------------------------------------------
+  let tags = [];                       // [{key, number?, url?, user?, created, pending?, t:{...}}]
+  let pending = store.get("pendingTags", []).filter(p => Date.now() - p.created < 3 * 864e5);
+  let filterStatus = new Set(Object.keys(STATUSES)), filterText = "", selected = null, draft = null;
+  function validTag(t) {
+    if (!t || typeof t !== "object" || !STATUSES[t.status]) return null;
+    if (!Array.isArray(t.pos) || t.pos.length !== 3 || !t.pos.every(Number.isFinite)) return null;
+    if (t.frame && t.frame !== FRAME) return null;
+    const s = (x, n) => typeof x === "string" ? x.slice(0, n) : "";
+    return { pos: t.pos.map(Number), status: t.status, team: s(t.team, 60) || "Unknown team", what: s(t.what, 80), note: s(t.note, 400), by: s(t.by, 60),
+             date: /^\d{4}-\d{2}-\d{2}$/.test(t.date || "") ? t.date : "" };
+  }
+  const TAG_RE = /```room-tag\s*\n([\s\S]*?)\n```/;
+  function fromIssue(i) {
+    const m = TAG_RE.exec(i.body || ""); if (!m) return null;
+    let t; try { t = validTag(JSON.parse(m[1])); } catch { return null; } if (!t) return null;
+    return { key: "gh" + i.number, number: i.number, url: i.html_url, user: i.user && i.user.login, created: i.created_at, t };
+  }
+  async function loadTags() {
+    let list = null, source = "";
+    try {   // live: GitHub API (60 requests/hour per network when signed out)
+      const all = [];
+      for (let page = 1; page <= 10; page++) {
+        const r = await fetch(`https://api.github.com/repos/${REPO}/issues?state=open&per_page=100&page=${page}`, { headers: { Accept: "application/vnd.github+json" } });
+        if (!r.ok) throw new Error("GitHub API " + r.status);
+        const batch = await r.json(); all.push(...batch.filter(i => !i.pull_request)); if (batch.length < 100) break;
+      }
+      list = all.map(fromIssue).filter(Boolean); source = "live from GitHub";
+    } catch (e) {   // fallback: snapshot the repo's Action writes on every issue change
+      try { const s = await (await fetch("tags.json", { cache: "no-store" })).json();
+        list = (s.issues || []).map(fromIssue).filter(Boolean); source = s.updated ? `snapshot ${new Date(s.updated).toLocaleString()}` : "snapshot";
+      } catch { list = []; source = "tags unavailable"; }
+    }
+    tags = list;
+    // a pending tag disappears once a saved tag sits at the same spot for the same team
+    pending = pending.filter(p => !tags.some(t => t.t.team === p.t.team && Math.hypot(...t.t.pos.map((v, k) => v - p.t.pos[k])) < 1e-3));
+    store.set("pendingTags", pending);
+    $("source").textContent = source;
+    renderTags();
+  }
+  const allTags = () => [...tags, ...pending.map(p => ({ key: p.key, pending: true, created: new Date(p.created).toISOString(), t: p.t }))];
+  const visibleTags = () => allTags().filter(x => filterStatus.has(x.t.status) &&
+    (!filterText || (x.t.team + " " + x.t.what + " " + x.t.note).toLowerCase().includes(filterText)));
+
+  // status filter chips + counts
+  for (const [k, s] of Object.entries(STATUSES)) {
+    const b = el("button"); b.dataset.s = k; b.setAttribute("aria-pressed", "true"); b.style.setProperty("--c", s.color);
+    b.append(el("span", "dot"), el("span", null, s.label)); b.onclick = () => {
+      filterStatus.has(k) ? filterStatus.delete(k) : filterStatus.add(k); b.setAttribute("aria-pressed", String(filterStatus.has(k))); renderTags(); };
+    $("filters").append(b);
+  }
+  $("teamFilter").addEventListener("input", (e) => { filterText = e.target.value.trim().toLowerCase(); renderTags(); });
+
+  const pinEls = new Map();      // key -> element
+  function renderTags() {
+    const all = allTags(), vis = visibleTags();
+    // counts
+    $("counts").replaceChildren(...Object.entries(STATUSES).map(([k, s]) => { const c = el("span", "chip"); c.style.setProperty("--c", s.color);
+      c.append(el("span", "dot"), el("span", null, `${all.filter(x => x.t.status === k).length} ${s.label.toLowerCase()}`)); return c; }));
+    $("listCount").textContent = `${vis.length}/${all.length}`;
+    $("listToggle").textContent = `Tags (${all.length})`;
+    // team suggestions
+    const teams = [...new Set(all.map(x => x.t.team))].sort();
+    $("teamList").replaceChildren(...teams.map(t => { const o = document.createElement("option"); o.value = t; return o; }));
+    // list, grouped by team
+    const items = $("items"); items.replaceChildren();
+    const sorted = [...vis].sort((a, b) => a.t.team.localeCompare(b.t.team) || a.t.status.localeCompare(b.t.status));
+    for (const x of sorted) {
+      const it = el("div", "item" + (x.pending ? " pending" : "") + (selected === x.key ? " sel" : "")); it.style.setProperty("--c", STATUSES[x.t.status].color);
+      it.tabIndex = 0; it.setAttribute("role", "button");
+      it.append(el("span", "dot"), el("span", "t", x.t.team + (x.t.what ? " · " + x.t.what : "")),
+        el("span", "s", statusLine(x.t) + (x.pending ? " · pending — finish on GitHub" : x.number ? ` · #${x.number}` : "")));
+      it.onclick = () => focusTag(x); it.onkeydown = (e) => { if (e.key === "Enter") focusTag(x); };
+      items.append(it);
+    }
+    $("empty").hidden = all.length > 0;
+    // pins
+    const keep = new Set();
+    for (const x of vis) {
+      keep.add(x.key);
+      let p = pinEls.get(x.key);
+      if (!p) { p = el("div", "pin"); p.append(el("span", "core"), el("span", "lbl")); p.onclick = (e) => { e.stopPropagation(); openPop(x.key); }; $("pins").append(p); pinEls.set(x.key, p); }
+      p.style.setProperty("--c", STATUSES[x.t.status].color);
+      p.classList.toggle("pending", !!x.pending); p.classList.toggle("sel", selected === x.key);
+      p.lastChild.textContent = `${x.t.team} · ${x.t.status === "moving_out" ? "out " + fmtDate(x.t.date) : STATUSES[x.t.status].label}`;
+      p._pos = new THREE.Vector3(...x.t.pos);
+    }
+    for (const [k, p] of pinEls) if (!keep.has(k)) { p.remove(); pinEls.delete(k); }
+    // minimap tag dots
+    tagLayer.replaceChildren(...vis.map(x => { const [mx, my] = toMap(x.t.pos[0], x.t.pos[2]);
+      return mk("circle", { cx: Math.max(3, Math.min(117, mx)).toFixed(1), cy: Math.max(3, Math.min(77, my)).toFixed(1), r: 1.7, fill: getComputedStyle(document.documentElement).getPropertyValue(STATUSES[x.t.status].color.slice(4, -1)).trim() || "#ccc" }); }));
+  }
+
+  const proj = new THREE.Vector3();
+  let draftPin = null;
+  function updatePins() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    const place = (p, pos) => {
+      proj.copy(pos).project(camera);
+      const behind = proj.z > 1 || proj.z < -1 || Math.abs(proj.x) > 1.2 || Math.abs(proj.y) > 1.2;
+      if (behind) { p.style.display = "none"; return; }
+      const dist = camera.position.distanceTo(pos);
+      p.style.display = "flex";
+      p.style.transform = `translate(${((proj.x + 1) / 2 * w - 9).toFixed(1)}px, ${((1 - proj.y) / 2 * h - 9).toFixed(1)}px)`;
+      p.classList.toggle("far", dist > 2.6 && !p.classList.contains("sel"));
+      p.style.zIndex = String(1000 - Math.round(dist * 100));
+    };
+    for (const p of pinEls.values()) place(p, p._pos);
+    if (draftPin) place(draftPin, draftPin._pos);
+  }
+
+  function focusTag(x) {
+    selected = x.key; renderTags();
+    const pos = new THREE.Vector3(...x.t.pos);
+    let best = hops[0], bd = Infinity;
+    for (const h of hops) { const d = h.v.distanceTo(pos); if (d < bd && d > 0.25) { bd = d; best = h; } }
+    hopTo(best, pos);
+    setTimeout(() => openPop(x.key), 700);
+    if (matchMedia("(max-width: 820px)").matches) $("list").classList.add("collapsed");
+  }
+  function openPop(key) {
+    const x = allTags().find(y => y.key === key); if (!x) return;
+    selected = key; renderTags();
+    const pop = $("pop"); pop.replaceChildren(); pop.style.setProperty("--c", STATUSES[x.t.status].color);
+    const st = el("span", "st"); st.append(el("span", "dot"), el("span", null, statusLine(x.t))); st.style.setProperty("--c", STATUSES[x.t.status].color);
+    pop.append(st, el("h3", null, x.t.team + (x.t.what ? " · " + x.t.what : "")));
+    if (x.t.note) pop.append(el("p", null, x.t.note));
+    const who = [x.t.by, x.user ? "@" + x.user : ""].filter(Boolean).join(" · ");
+    pop.append(el("div", "meta", (who ? who + " · " : "") + (x.pending ? "pending — not saved on GitHub yet" : `#${x.number} · ${new Date(x.created).toLocaleDateString()}`)));
+    const acts = el("div", "acts");
+    if (x.url) { const a = el("a", "btn", "Edit on GitHub"); a.href = x.url; a.target = "_blank"; a.rel = "noopener"; acts.append(a); }
+    if (x.pending) { const d = el("button", "btn", "Discard"); d.onclick = () => { pending = pending.filter(p => p.key !== key); store.set("pendingTags", pending); pop.hidden = true; renderTags(); }; acts.append(d);
+      const r = el("a", "btn", "Open on GitHub again"); r.href = issueUrl(x.t); r.target = "_blank"; r.rel = "noopener"; acts.append(r); }
+    const c = el("button", "btn ghost", "Close"); c.onclick = () => { pop.hidden = true; selected = null; renderTags(); }; acts.append(c);
+    pop.append(acts);
+    const p = pinEls.get(key); const r = p ? p.getBoundingClientRect() : { left: innerWidth / 2, top: innerHeight / 2 };
+    pop.hidden = false;
+    const pw = pop.offsetWidth, ph = pop.offsetHeight;
+    pop.style.left = Math.max(16, Math.min(innerWidth - pw - 16, r.left + 20)) + "px";
+    pop.style.top = Math.max(16, Math.min(innerHeight - ph - 16, r.top - ph / 2)) + "px";
+  }
+
+  // ---- adding a tag --------------------------------------------------------------------------
+  let tagging = false;
+  function setTagging(v) {
+    tagging = v; document.body.classList.toggle("tagging", v);
+    $("tagBtn").textContent = v ? "Cancel tagging" : "Tag an object";
+    $("tagBtn").classList.toggle("primary", !v);
+    $("hint").textContent = v ? "Click directly on the object you want to tag" : "Click the orange arrows to hop · drag to look around";
+  }
+  $("tagBtn").onclick = () => { if (!$("form").hidden) return; setTagging(!tagging); };
+  for (const [k, s] of Object.entries(STATUSES)) {
+    const lab = el("label", "opt"); lab.style.setProperty("--c", s.color);
+    const inp = document.createElement("input"); inp.type = "radio"; inp.name = "status"; inp.value = k; inp.required = true;
+    const b = el("b"); b.append(el("span", "dot"), document.createTextNode(" " + s.long)); b.style.display = "inline-flex"; b.style.gap = "6px"; b.style.alignItems = "center"; b.style.setProperty("--c", s.color);
+    lab.append(inp, b, el("span", null, s.desc)); $("fStatus").append(lab);
+    inp.onchange = () => { $("dateField").hidden = k !== "moving_out"; };
+  }
+  $("dateField").hidden = true;
+
+  function openForm(point) {
+    draft = point.toArray().map(v => +v.toFixed(4));
+    draftPin = el("div", "pin draft"); draftPin.append(el("span", "core")); draftPin._pos = point.clone(); $("pins").append(draftPin);
+    $("form").hidden = false; $("formErr").textContent = "";
+    const last = store.get("lastTeam", ""); if (last && !$("fTeam").value) $("fTeam").value = last;
+    $("fBy").value = store.get("lastBy", "");
+    $("fTeam").focus();
+  }
+  function closeForm() { $("form").hidden = true; draft = null; if (draftPin) { draftPin.remove(); draftPin = null; } }
+  $("fCancel").onclick = closeForm;
+
+  function issueUrl(t) {
+    const title = `${t.team} · ${statusLine(t)}${t.what ? " · " + t.what : ""}`;
+    const body = [
+      `**Team:** ${t.team}`, `**Status:** ${statusLine(t)}`, t.what ? `**What:** ${t.what}` : "", t.note ? `**Note:** ${t.note}` : "", t.by ? `**Tagged by:** ${t.by}` : "",
+      "", "<sub>Placed from the Robotics Room Move-Out map. The map reads the block below — edit the JSON to change this tag, or close the issue to remove it.</sub>", "",
+      "```room-tag", JSON.stringify(t), "```",
+    ].filter((l, i, a) => l !== "" || a[i - 1] !== "").join("\n");
+    return `https://github.com/${REPO}/issues/new?` + new URLSearchParams({ title, body }).toString();
+  }
+  $("form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const status = (new FormData($("form"))).get("status");
+    const t = { v: 1, frame: FRAME, pos: draft, team: $("fTeam").value.trim(), status, date: $("fDate").value, what: $("fWhat").value.trim(), note: $("fNote").value.trim(), by: $("fBy").value.trim() };
+    if (!t.team) return void ($("formErr").textContent = "Add your team or project name.");
+    if (!STATUSES[status]) return void ($("formErr").textContent = "Pick a status.");
+    if (status === "moving_out" && !t.date) return void ($("formErr").textContent = "Pick the date it's moving out.");
+    if (status !== "moving_out") delete t.date;
+    for (const k of ["what", "note", "by"]) if (!t[k]) delete t[k];
+    store.set("lastTeam", t.team); if (t.by) store.set("lastBy", t.by);
+    const url = issueUrl(t);
+    const win = window.open(url, "_blank"); if (win) win.opener = null;
+    pending.push({ key: "p" + Date.now(), created: Date.now(), t: validTag(t) }); store.set("pendingTags", pending);
+    closeForm(); setTagging(false); renderTags();
+    toast(win === null ? "Your browser blocked the GitHub tab — click the dashed pin → Open on GitHub again." : "Finish on GitHub: press “Submit new issue”. Your pin stays dashed until it's saved.", 7000);
+  });
+
+  // ---- clicks: arrows, tagging, deselect -----------------------------------------------------
+  const raycaster = new THREE.Raycaster(); const ndc = new THREE.Vector2();
+  const setNdc = (e) => { const r = canvas.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); raycaster.setFromCamera(ndc, camera); };
+  const arrowHit = () => { const hit = raycaster.intersectObjects(arrows.filter(a => a.visible), false)[0]; return hit ? hit.object : null; };
+  let down = null;
+  canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; canvas.focus(); });
+  canvas.addEventListener("pointerup", (e) => {
+    if (!down) return; const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t; down = null;
+    if (moved > 6 || dt > 600 || glide) return;
+    setNdc(e);
+    const a = arrowHit(); if (a && !tagging) return hopTo(a.userData.target);
+    if (tagging && activeMesh) {
+      raycaster.near = 0.05; raycaster.far = 50;
+      const hit = raycaster.intersectObject(activeMesh, false).sort((p, q) => p.distance - q.distance)[0];
+      if (!hit) return toast("Nothing there — click directly on an object.", 2200);
+      setTagging(false); openForm(hit.point);
+      return;
+    }
+    if (!$("pop").hidden) { $("pop").hidden = true; selected = null; renderTags(); }
+  });
+  let moveQueued = false;
+  canvas.addEventListener("pointermove", (e) => {
+    if (moveQueued || e.buttons) return; moveQueued = true;
+    requestAnimationFrame(() => { moveQueued = false; setNdc(e); const a = tagging ? null : arrowHit();
+      hoverArrow = a; document.body.classList.toggle("over-arrow", !!a); canvas.title = a ? `Hop to spot ${a.userData.target.id}` : ""; });
+  });
+
+  // ---- keyboard ------------------------------------------------------------------------------
+  addEventListener("keydown", (e) => {
+    if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) { if (e.key === "Escape") closeForm(); return; }
+    const k = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" }[e.key];
+    if (k) { e.preventDefault(); if (!glide) hopDir(k); return; }
+    if (e.key === "Escape") { if (!$("form").hidden) closeForm(); else if (tagging) setTagging(false); $("pop").hidden = true; $("help").hidden = true; }
+    else if (e.key === "t" || e.key === "T") { if ($("form").hidden) setTagging(!tagging); }
+    else if (e.key === "?") $("help").hidden = !$("help").hidden;
+  });
+
+  // ---- misc UI -------------------------------------------------------------------------------
+  $("helpBtn").onclick = () => { $("help").hidden = !$("help").hidden; };
+  $("helpClose").onclick = () => { $("help").hidden = true; store.set("seenHelp", true); };
+  $("listToggle").onclick = () => $("list").classList.toggle("collapsed");
+  $("ghIssues").href = `https://github.com/${REPO}/issues`;
+  $("csv").onclick = (e) => {
+    e.preventDefault();
+    const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
+    const rows = [["team", "status", "move_out_date", "what", "note", "tagged_by", "github_user", "issue", "saved", "x", "y", "z"]];
+    for (const x of allTags()) rows.push([x.t.team, STATUSES[x.t.status].label, x.t.date, x.t.what, x.t.note, x.t.by, x.user || "", x.url || "", x.pending ? "pending" : "saved", ...x.t.pos]);
+    const blob = new Blob([rows.map(r => r.map(q).join(",")).join("\n")], { type: "text/csv" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "robotics-room-tags.csv"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  };
+  window.app = { camera, hops, hopTo, tags: () => allTags(), meshes, loadTags };   // console access for debugging
+
+  // ---- start ---------------------------------------------------------------------------------
+  const start = hopAt(1, 1) || hops[0];
+  camera.position.copy(start.v);
+  // first view: level, looking across the room toward the farthest spot
+  const far = hops.reduce((a, h) => h.v.distanceTo(start.v) > a.v.distanceTo(start.v) ? h : a, hops[0]);
+  camera.lookAt(new THREE.Vector3(far.v.x, start.v.y, far.v.z));
+  if (!store.get("seenHelp", false)) $("help").hidden = false;
+  if (!matchMedia("(max-width: 820px)").matches) $("list").classList.remove("collapsed");
+  loadTags(); setInterval(() => { if (document.visibilityState === "visible") loadTags(); }, 120000);
+
+  let last = performance.now();
   renderer.setAnimationLoop((now) => {
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
-    if (playing) {
-      tourT += dt * (poses.views_per_sec || 8) * Math.pow(2, +$("speed").value);
-      if (tourT >= keys.length - 1) { tourT = keys.length - 1; setPlaying(false); }
-      const { p, q } = poseAt(tourT);
-      if (camera.position.distanceTo(p) > medStep * 10) { camera.position.copy(p); camera.quaternion.copy(q); }
-      camera.position.lerp(p, 1 - Math.exp(-dt * 12));
-      camera.quaternion.slerp(q, 1 - Math.exp(-dt * 6));
-      if (frames % 10 === 0) syncUi();
+    if (glide) {
+      const k = Math.min(1, (now - glide.t0) / glide.dur), s = ease(k);
+      camera.position.lerpVectors(glide.from, glide.to, s);
+      camera.quaternion.slerpQuaternions(glide.q0, glide.q1, s);
+      if (k >= 1) { glide = null; fps.enable = ptr.enable = true; }
     } else controls.update(camera, camera);
+    placeArrows(); updateMap(); updatePins();
     renderer.render(scene, camera);
-    frames++;
-    if (now - fpsT > 1000) { if (statLabel) $("stat").textContent = `${statLabel} · ${Math.round(frames * 1000 / (now - fpsT))} fps`; frames = 0; fpsT = now; }
   });
-  await show(startId);
+  await setQuality(store.get("quality", phone ? "lite" : "full"));
 } catch (e) {
   console.error(e);
   fail(String(e && e.message || e));

@@ -1,0 +1,35 @@
+name: Snapshot room tags
+on:
+  issues:
+    types: [opened, edited, closed, reopened, deleted, transferred]
+  workflow_dispatch:
+permissions:
+  contents: write
+  issues: write
+  pages: write
+concurrency:
+  group: tags-snapshot
+  cancel-in-progress: false
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild tags.json and status labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: python3 .github/scripts/snapshot_tags.py
+      - name: Commit snapshot and rebuild Pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git diff --quiet -- tags.json; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tags.json
+          git commit -m "Update tags snapshot"
+          git pull --rebase -q origin main
+          git push -q origin HEAD:main
+          # pushes made with GITHUB_TOKEN don't start a Pages build on their own
+          gh api -X POST "repos/${{ github.repository }}/pages/builds" || echo "Pages rebuild request failed (will publish with the next push)"

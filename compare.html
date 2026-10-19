@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Workshop Walkthrough</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Deliberately single-theme: a dark ground lets the splat read; every color is painted explicitly. */
+  :root {
+    color-scheme: dark;
+    --ground: #0d0f12; --panel: rgba(18, 21, 26, .86); --line: #2a3038; --ink: #e6e9ee;
+    --muted: #8b94a1; --accent: #ff8a3d; --accent-ink: #1a0d04;
+    --ui: "IBM Plex Sans Condensed", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 14px/1.4 var(--ui); overflow: hidden; }
+  [hidden] { display: none !important; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+  .panel { position: fixed; background: var(--panel); border: 1px solid var(--line); border-radius: 3px;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  #top { top: calc(12px + env(safe-area-inset-top, 0px)); left: 16px; right: 120px; padding: 8px 10px 8px 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  #top b { font-weight: 600; letter-spacing: .3px; white-space: nowrap; }
+  #stat { color: var(--muted); font: 12px var(--mono); white-space: nowrap; }
+  #versions { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 2px; overflow: hidden; }
+  #versions button { border: 0; border-right: 1px solid var(--line); border-radius: 0; background: transparent; padding: 5px 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 0; }
+  #versions button:last-child { border-right: 0; }
+  #versions button .k { font: 11px var(--mono); color: var(--muted); }
+  #versions button .d { font: 11px var(--mono); color: var(--muted); }
+  #versions button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+  #versions button[aria-pressed="true"] .k, #versions button[aria-pressed="true"] .d { color: var(--accent-ink); }
+  #toggleHelp { top: calc(12px + env(safe-area-inset-top, 0px)); right: 16px; }
+  #help { left: 16px; bottom: calc(68px + env(safe-area-inset-bottom, 0px)); padding: 12px 14px; width: 300px; }
+  #help h2 { margin: 0 0 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
+  #help h2 + table { margin-bottom: 10px; }
+  #help table { border-collapse: collapse; width: 100%; }
+  #help td { padding: 2px 0; vertical-align: top; }
+  #help td:first-child { color: var(--muted); width: 104px; white-space: nowrap; }
+  #help p { margin: 0; color: var(--muted); }
+  kbd { font: 11px var(--mono); color: var(--ink); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 2px; padding: 0 4px; background: #161a20; }
+  #bar { left: 16px; right: 16px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); padding: 8px 10px; display: flex; gap: 10px; align-items: center; }
+  button { font: 500 13px var(--ui); color: var(--ink); background: #1a1f26; border: 1px solid var(--line); border-radius: 2px; padding: 6px 11px; cursor: pointer; white-space: nowrap; }
+  button:hover { border-color: #46505c; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #play.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  input[type=range] { accent-color: var(--accent); }
+  #scrub { flex: 1; min-width: 60px; }
+  .lab { color: var(--muted); font: 12px var(--mono); white-space: nowrap; }
+  #speed { width: 90px; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; padding-inline: 16px; pointer-events: none; }
+  #loading .panel { position: static; padding: 16px 20px; width: min(340px, 100%); }
+  #loadMsg { font-weight: 500; }
+  #loadSub { color: var(--muted); font: 12px var(--mono); margin-top: 4px; }
+  #prog { height: 3px; background: var(--line); margin-top: 12px; overflow: hidden; }
+  #prog i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  #err { color: #ffb38a; margin-top: 8px; }
+  @media (max-width: 760px) {
+    #top { right: 16px; top: calc(54px + env(safe-area-inset-top, 0px)); }
+    #help { width: auto; right: 16px; bottom: calc(108px + env(safe-area-inset-bottom, 0px)); font-size: 13px; }
+    #bar { flex-wrap: wrap; }
+    #scrub { order: 10; flex-basis: 100%; }
+    .wide { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { #prog i { transition: none; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three.module.js",
+  "three/addons/": "./vendor/addons/",
+  "@sparkjsdev/spark": "./vendor/spark.module.js"
+} }
+</script>
+</head>
+<body>
+<canvas id="c" tabindex="0" aria-label="3D view of the workshop"></canvas>
+
+<div id="top" class="panel">
+  <b>Workshop Walkthrough</b>
+  <div id="versions" role="group" aria-label="Model version"></div>
+  <span id="stat">loading…</span>
+</div>
+<button id="toggleHelp" class="panel" title="Show or hide the controls (H)">Controls</button>
+
+<div id="help" class="panel">
+  <h2>Compare</h2>
+  <table>
+    <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd></td><td>switch model, same viewpoint</td></tr>
+    <tr><td><kbd>B</kbd></td><td>flip back to the previous model</td></tr>
+  </table>
+  <h2>Walk</h2>
+  <table>
+    <tr><td><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></td><td>move (or arrow keys)</td></tr>
+    <tr><td><kbd>Q</kbd> / <kbd>E</kbd></td><td>down / up</td></tr>
+    <tr><td>drag</td><td>look around</td></tr>
+    <tr><td>right-drag</td><td>slide sideways</td></tr>
+    <tr><td>scroll</td><td>step forward / back</td></tr>
+    <tr><td><kbd>Shift</kbd> / <kbd>Ctrl</kbd></td><td>faster / slower</td></tr>
+  </table>
+  <h2>Filmed path</h2>
+  <table>
+    <tr><td><kbd>Space</kbd></td><td>play or pause the tour</td></tr>
+    <tr><td><kbd>N</kbd> / <kbd>P</kbd></td><td>next / previous filmed view</td></tr>
+    <tr><td><kbd>R</kbd></td><td>back to the first view</td></tr>
+    <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>narrower / wider lens</td></tr>
+  </table>
+  <p>On a phone: drag to look, two fingers to move.</p>
+</div>
+
+<div id="bar" class="panel">
+  <button id="play" title="Fly the path the phone was filmed along (Space)">Play tour</button>
+  <button id="prev" title="Previous filmed view (P)" aria-label="Previous filmed view">◀</button>
+  <button id="next" title="Next filmed view (N)" aria-label="Next filmed view">▶</button>
+  <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Position along the filmed path">
+  <span class="lab" id="frameLab">view 1</span>
+  <label class="lab wide" for="speed">speed</label>
+  <input id="speed" class="wide" type="range" min="-3" max="3" step="0.1" value="0">
+  <button id="reset" title="Back to the first view (R)">Reset</button>
+</div>
+
+<div id="loading"><div class="panel">
+  <div id="loadMsg">Loading the room…</div>
+  <div id="loadSub">fetching</div>
+  <div id="prog"><i></i></div>
+  <div id="err"></div>
+</div></div>
+
+<script type="module">
+import * as THREE from "three";
+import { SparkRenderer, SplatMesh, SparkControls } from "@sparkjsdev/spark";
+
+const $ = (id) => document.getElementById(id);
+const fail = (msg) => { $("loading").hidden = false; $("err").textContent = msg; $("loadMsg").textContent = "Could not load the room"; };
+
+try {
+  if (location.protocol === "file:") throw new Error("Open this through a web server, not as a file.");
+  const canvas = $("c");
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const camera = new THREE.PerspectiveCamera(70, 1, 0.01, 1000);
+  const size = () => { renderer.setSize(canvas.clientWidth, canvas.clientHeight, false); camera.aspect = canvas.clientWidth / canvas.clientHeight; camera.updateProjectionMatrix(); };
+  size(); addEventListener("resize", size);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0d0f12);
+  scene.add(new SparkRenderer({ renderer }));
+
+  const [cfg, poses] = await Promise.all(["versions.json", "poses.json"].map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u + " missing"); return r.json(); })));
+
+  // Filmed path (shared by every version — each splat carries its own matrix into this frame).
+  const keys = poses.cameras.map(c => ({ p: new THREE.Vector3(...c.p), q: new THREE.Quaternion(...c.q) }));
+  const steps = keys.slice(1).map((c, i) => c.p.distanceTo(keys[i].p)).sort((a, b) => a - b);
+  const medStep = steps[Math.floor(steps.length / 2)] || 0.05;
+  const seg = [0];
+  for (let i = 1; i < keys.length; i++) seg.push(seg[i - 1] + (keys[i].p.distanceTo(keys[i - 1].p) > medStep * 10 ? 1 : 0));
+  const sm = keys.map((k, i) => {
+    const acc = new THREE.Vector3(); let w = 0;
+    for (let j = -3; j <= 3; j++) { const kk = keys[i + j]; if (!kk || seg[i + j] !== seg[i]) continue; const ww = Math.exp(-(j * j) / 4); acc.addScaledVector(kk.p, ww); w += ww; }
+    return acc.multiplyScalar(1 / w);
+  });
+  const poseAt = (t) => {
+    const i = Math.max(0, Math.min(keys.length - 2, Math.floor(t)));
+    const f = seg[i + 1] === seg[i] ? t - i : 0;
+    return { p: sm[i].clone().lerp(sm[i + 1], f), q: keys[i].q.clone().slerp(keys[i + 1].q, f) };
+  };
+
+  // ---- versions: lazily loaded, kept in memory, toggled by visibility so switching is instant ----
+  const versions = cfg.versions;
+  const meshes = {};       // id -> SplatMesh
+  let current = null, previous = null;
+  const phone = matchMedia("(pointer: coarse)").matches && Math.min(screen.width, screen.height) < 820;
+  const qs = new URLSearchParams(location.search);
+  const startId = qs.get("v") || (phone ? cfg.phone_default : cfg.default) || versions[0].id;
+
+  versions.forEach((v, i) => {
+    const b = document.createElement("button");
+    b.dataset.id = v.id; b.setAttribute("aria-pressed", "false"); b.title = v.note || v.label;
+    b.innerHTML = `<span><span class="k">${i + 1}</span> ${v.label}</span><span class="d">${v.detail}</span>`;
+    b.onclick = () => show(v.id);
+    $("versions").append(b);
+  });
+
+  function load(v) {
+    if (meshes[v.id]) return meshes[v.id];
+    const m = new SplatMesh({
+      url: v.file,
+      onProgress: (e) => {
+        if (current !== v.id || !e) return;
+        if (e.total) $("prog").firstElementChild.style.width = (95 * e.loaded / e.total).toFixed(1) + "%";
+        $("loadSub").textContent = `${v.label} · ${(e.loaded / 1048576).toFixed(0)}${e.total ? " / " + (e.total / 1048576).toFixed(0) : ""} MB`;
+      },
+    });
+    m.applyMatrix4(new THREE.Matrix4().fromArray(v.matrix.flat()).transpose());
+    m.visible = false;
+    scene.add(m);
+    meshes[v.id] = m;
+    return m;
+  }
+
+  let statLabel = "";
+  async function show(id) {
+    const v = versions.find(x => x.id === id) || versions[0];
+    if (v.id !== current) { previous = current; current = v.id; }
+    for (const b of $("versions").children) b.setAttribute("aria-pressed", String(b.dataset.id === v.id));
+    try { history.replaceState(null, "", "?v=" + v.id); } catch {}
+    const m = load(v);
+    const ready = m.isInitialized;
+    if (!ready) {
+      $("loading").hidden = false; $("err").textContent = "";
+      $("loadMsg").textContent = `Loading ${v.label}…`; $("loadSub").textContent = v.detail;
+      $("prog").firstElementChild.style.width = "0%";
+      try { await m.initialized; } catch (e) { if (current === v.id) fail(`${v.file}: ${e.message || e}`); return; }
+      if (current !== v.id) return;          // the viewer moved on while this loaded
+      $("loading").hidden = true;
+    }
+    for (const [k, mesh] of Object.entries(meshes)) mesh.visible = (k === v.id);
+    statLabel = `${v.label} · ${(m.numSplats / 1e6).toFixed(2)}M`;
+    $("stat").textContent = statLabel;
+  }
+
+  const controls = new SparkControls({ canvas });
+  const fps = controls.fpsMovement, ptr = controls.pointerControls;
+  const baseSpeed = (poses.cam_extent || 4) * 0.09;
+  const applySpeed = () => { fps.moveSpeed = baseSpeed * Math.pow(2, +$("speed").value); ptr.scrollSpeed = 0.0015 * baseSpeed; ptr.slideSpeed = 0.006 * baseSpeed; };
+  applySpeed(); $("speed").addEventListener("input", applySpeed);
+
+  let tourT = 0, playing = false;
+  const setPose = (t) => { const { p, q } = poseAt(t); camera.position.copy(p); camera.quaternion.copy(q); };
+  const syncUi = () => {
+    $("scrub").value = Math.round(1000 * tourT / (keys.length - 1));
+    $("frameLab").textContent = `view ${Math.round(tourT) + 1}/${keys.length}`;
+    $("play").textContent = playing ? "Pause tour" : "Play tour";
+    $("play").classList.toggle("on", playing);
+  };
+  const goView = (i) => { tourT = ((i % keys.length) + keys.length) % keys.length; setPose(tourT); syncUi(); };
+  const setPlaying = (v) => { playing = v; fps.enable = !v; ptr.enable = !v; syncUi(); };
+  $("play").onclick = () => setPlaying(!playing);
+  $("next").onclick = () => { setPlaying(false); goView(Math.round(tourT) + 5); };
+  $("prev").onclick = () => { setPlaying(false); goView(Math.round(tourT) - 5); };
+  $("reset").onclick = () => { setPlaying(false); goView(0); };
+  $("scrub").addEventListener("input", () => { setPlaying(false); tourT = (keys.length - 1) * $("scrub").value / 1000; setPose(tourT); syncUi(); });
+  $("toggleHelp").onclick = () => { $("help").hidden = !$("help").hidden; };
+  if (matchMedia("(max-width: 760px)").matches) $("help").hidden = true;
+  addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT") return;
+    const n = Number(e.key);
+    if (n >= 1 && n <= versions.length) show(versions[n - 1].id);
+    else if (e.code === "KeyB" && previous) show(previous);
+    else if (e.code === "Space") { e.preventDefault(); setPlaying(!playing); }
+    else if (e.code === "KeyN") $("next").onclick();
+    else if (e.code === "KeyP") $("prev").onclick();
+    else if (e.code === "KeyR") $("reset").onclick();
+    else if (e.code === "KeyH") $("toggleHelp").onclick();
+    else if (e.code === "BracketLeft" || e.code === "BracketRight") {
+      camera.fov = Math.max(30, Math.min(110, camera.fov + (e.code === "BracketLeft" ? -5 : 5))); camera.updateProjectionMatrix();
+    }
+  });
+  canvas.addEventListener("pointerdown", () => { if (playing) setPlaying(false); canvas.focus(); });
+
+  window.viewer = { camera, show, goView, poseAt, keys, meshes };   // console access for debugging
+  goView(0);
+  let last = performance.now(), frames = 0, fpsT = last;
+  renderer.setAnimationLoop((now) => {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (playing) {
+      tourT += dt * (poses.views_per_sec || 8) * Math.pow(2, +$("speed").value);
+      if (tourT >= keys.length - 1) { tourT = keys.length - 1; setPlaying(false); }
+      const { p, q } = poseAt(tourT);
+      if (camera.position.distanceTo(p) > medStep * 10) { camera.position.copy(p); camera.quaternion.copy(q); }
+      camera.position.lerp(p, 1 - Math.exp(-dt * 12));
+      camera.quaternion.slerp(q, 1 - Math.exp(-dt * 6));
+      if (frames % 10 === 0) syncUi();
+    } else controls.update(camera, camera);
+    renderer.render(scene, camera);
+    frames++;
+    if (now - fpsT > 1000) { if (statLabel) $("stat").textContent = `${statLabel} · ${Math.round(frames * 1000 / (now - fpsT))} fps`; frames = 0; fpsT = now; }
+  });
+  await show(startId);
+} catch (e) {
+  console.error(e);
+  fail(String(e && e.message || e));
+}
+</script>
+</body>
+</html>
